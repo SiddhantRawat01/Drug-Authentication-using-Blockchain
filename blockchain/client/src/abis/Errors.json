@@ -1,0 +1,2312 @@
+{
+  "contractName": "Errors",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "AccessControlAlreadyInitialized",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        }
+      ],
+      "name": "AccessControlBadAdminRole",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AccessControlCannotGrantRoleToSelf",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AccessControlCannotManageAdminRole",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AccessControlCannotRevokeAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        }
+      ],
+      "name": "AccessControlInvalidAdminRole",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        }
+      ],
+      "name": "AccessControlMissingRole",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AccessControlOwnerOnly",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AccessControlZeroAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Batch_AlreadyDestroyed",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "current",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint8",
+          "name": "required",
+          "type": "uint8"
+        }
+      ],
+      "name": "Batch_InvalidStateForAction",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "expected",
+          "type": "address"
+        }
+      ],
+      "name": "Batch_UnauthorizedCaller",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Med_AlreadyDestroyedOrFinalized",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "current",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint8",
+          "name": "target",
+          "type": "uint8"
+        }
+      ],
+      "name": "Med_InvalidStateTransition",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "PROXY_AdminRole_Grant_Failed_Post_Init",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PROXY_Initialize_DelegateCall_Failed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PROXY_Initialize_Unexpected_Return_Data",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PROXY_InvalidLogicAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PROXY_LogicAddressHasNoCode",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "expectedOwner",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "actualOwner",
+          "type": "address"
+        }
+      ],
+      "name": "PROXY_Owner_Mismatch_Post_Init",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Proxy_DeployerNotAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Proxy_HasRoleFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Proxy_InitFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Proxy_LogicAddressZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Proxy_LogicNoCode",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Proxy_OwnerMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "reason",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SC_ArgumentError",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchType",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SC_BatchCreationFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "batchAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "action",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SC_BatchTypeUnknownOrActionFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "context",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SC_DelegateCallFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "action",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes",
+          "name": "errorData",
+          "type": "bytes"
+        }
+      ],
+      "name": "SC_ExternalCallFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "batchAddress",
+          "type": "address"
+        }
+      ],
+      "name": "SC_HistoryUnavailable",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "context",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SC_InvalidAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "receiver",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "expectedRole",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SC_InvalidReceiverRole",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "batchAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint8",
+          "name": "currentStatus",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "action",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SC_InvalidStateForAction",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "rmAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "reason",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SC_RawMaterialValidationFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "batchAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "expected",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "actual",
+          "type": "address"
+        }
+      ],
+      "name": "SC_ReceiverMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "reason",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SC_RoleCheckFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "actor",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "reason",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SC_UnauthorizedActor",
+      "type": "error"
+    }
+  ],
+  "metadata": "{\"compiler\":{\"version\":\"0.8.20+commit.a1b79de6\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"AccessControlAlreadyInitialized\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"AccessControlBadAdminRole\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AccessControlCannotGrantRoleToSelf\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AccessControlCannotManageAdminRole\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AccessControlCannotRevokeAdmin\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"AccessControlInvalidAdminRole\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"AccessControlMissingRole\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AccessControlOwnerOnly\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AccessControlZeroAddress\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Batch_AlreadyDestroyed\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"current\",\"type\":\"uint8\"},{\"internalType\":\"uint8\",\"name\":\"required\",\"type\":\"uint8\"}],\"name\":\"Batch_InvalidStateForAction\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"caller\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"expected\",\"type\":\"address\"}],\"name\":\"Batch_UnauthorizedCaller\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Med_AlreadyDestroyedOrFinalized\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"current\",\"type\":\"uint8\"},{\"internalType\":\"uint8\",\"name\":\"target\",\"type\":\"uint8\"}],\"name\":\"Med_InvalidStateTransition\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"}],\"name\":\"PROXY_AdminRole_Grant_Failed_Post_Init\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PROXY_Initialize_DelegateCall_Failed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PROXY_Initialize_Unexpected_Return_Data\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PROXY_InvalidLogicAddress\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PROXY_LogicAddressHasNoCode\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"expectedOwner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"actualOwner\",\"type\":\"address\"}],\"name\":\"PROXY_Owner_Mismatch_Post_Init\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Proxy_DeployerNotAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Proxy_HasRoleFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Proxy_InitFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Proxy_LogicAddressZero\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Proxy_LogicNoCode\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Proxy_OwnerMismatch\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"reason\",\"type\":\"bytes32\"}],\"name\":\"SC_ArgumentError\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"batchType\",\"type\":\"bytes32\"}],\"name\":\"SC_BatchCreationFailed\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"batchAddress\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"action\",\"type\":\"bytes32\"}],\"name\":\"SC_BatchTypeUnknownOrActionFailed\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"context\",\"type\":\"bytes32\"}],\"name\":\"SC_DelegateCallFailed\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"action\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"errorData\",\"type\":\"bytes\"}],\"name\":\"SC_ExternalCallFailed\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"batchAddress\",\"type\":\"address\"}],\"name\":\"SC_HistoryUnavailable\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"context\",\"type\":\"bytes32\"}],\"name\":\"SC_InvalidAddress\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"expectedRole\",\"type\":\"bytes32\"}],\"name\":\"SC_InvalidReceiverRole\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"batchAddress\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"currentStatus\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"action\",\"type\":\"bytes32\"}],\"name\":\"SC_InvalidStateForAction\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"rmAddress\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"reason\",\"type\":\"bytes32\"}],\"name\":\"SC_RawMaterialValidationFailed\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"batchAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"expected\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"actual\",\"type\":\"address\"}],\"name\":\"SC_ReceiverMismatch\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"reason\",\"type\":\"bytes32\"}],\"name\":\"SC_RoleCheckFailed\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"actor\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"reason\",\"type\":\"bytes32\"}],\"name\":\"SC_UnauthorizedActor\",\"type\":\"error\"}],\"devdoc\":{\"details\":\"Centralized library for custom error definitions used across the supply chain system.\",\"kind\":\"dev\",\"methods\":{},\"title\":\"Errors\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Using bytes32 for context/reasons and uint8 for enums where applicable for gas efficiency.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"project:/contracts/libraries/Errors.sol\":\"Errors\"},\"evmVersion\":\"shanghai\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[],\"viaIR\":true},\"sources\":{\"project:/contracts/batches/Medicine.sol\":{\"keccak256\":\"0x5d282670161f41b1de506cfb457a743be68348769b7c89c9f6c4cb494ebefebf\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://29d6c07c43fd4c7a05c068f67ad72d9de4e490e2c7531dc6d5ee6473a749a4e6\",\"dweb:/ipfs/Qmdi9nsAxzhsYcdRSSXKZkCrRZDGBP9ackg358FGY4gyvT\"]},\"project:/contracts/batches/RawMaterial.sol\":{\"keccak256\":\"0xc428e73c9c886c08d3938612c78155cd7f4a8a26fd55e3c37845c3907ddcd94b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://a064541b9fb7e7419c5a3b0f5dd8600868f4c5331ab42a8d3882a1854c0f1431\",\"dweb:/ipfs/QmVMp2kVw1kfF1FwpddkqHfSo2jZ357m87mHbAgKL2ATDB\"]},\"project:/contracts/libraries/Errors.sol\":{\"keccak256\":\"0x3fdbfd8992d7efb3328640ebd75d9b2af9b80c1ce233f9107be2bdd719368bc5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://447c58f23e668a519db756b7bd78ac3b1495b127283da4b9b582d78b6416d750\",\"dweb:/ipfs/Qmay1hsXjgNwvwcAbHcJ9rFGnCYnBwVMDXsUp9Ur6NL7nQ\"]}},\"version\":1}",
+  "bytecode": "0x6080806040523460175760399081601c823930815050f35b5f80fdfe5f80fdfea26469706673582212206450672b2b67d9312c8d0f923652d8154c24a33257684ed39ea43ed825e6037864736f6c63430008140033",
+  "deployedBytecode": "0x5f80fdfea26469706673582212206450672b2b67d9312c8d0f923652d8154c24a33257684ed39ea43ed825e6037864736f6c63430008140033",
+  "immutableReferences": {},
+  "generatedSources": [],
+  "deployedGeneratedSources": [],
+  "sourceMap": "484:3374:4:-:0;;;;;;;;;;;;;;;;;;;;;",
+  "deployedSourceMap": "484:3374:4:-:0;;",
+  "source": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.20;\r\n\r\n// Forward declare enums used in errors to avoid full contract imports in the library\r\nimport {RawMaterial} from \"../batches/RawMaterial.sol\";\r\nimport {Medicine} from \"../batches/Medicine.sol\";\r\n\r\n/**\r\n * @title Errors\r\n * @dev Centralized library for custom error definitions used across the supply chain system.\r\n * @notice Using bytes32 for context/reasons and uint8 for enums where applicable for gas efficiency.\r\n */\r\nlibrary Errors {\r\n    // --- Access Control Errors ---\r\n    error AccessControlBadAdminRole(bytes32 role);\r\n    error AccessControlMissingRole(address account, bytes32 role);\r\n    error AccessControlInvalidAdminRole(address account, bytes32 role);\r\n    error AccessControlOwnerOnly();\r\n    error AccessControlZeroAddress();\r\n    error AccessControlCannotRevokeAdmin();\r\n    error AccessControlCannotGrantRoleToSelf();\r\n    error AccessControlAlreadyInitialized();\r\n    error AccessControlCannotManageAdminRole();\r\n\r\n    // --- Supply Chain Core Errors ---\r\n    error SC_InvalidAddress(bytes32 context); // e.g., context = keccak256(\"intendedManufacturer\")\r\n    error SC_RoleCheckFailed(address target, bytes32 role, bytes32 reason); // e.g., reason = keccak256(\"Intended manufacturer lacks role\")\r\n    error SC_BatchCreationFailed(bytes32 batchType); // e.g., batchType = keccak256(\"RawMaterial\")\r\n    error SC_RawMaterialValidationFailed(address rmAddress, bytes32 reason);\r\n    error SC_UnauthorizedActor(address actor, bytes32 reason);\r\n    error SC_InvalidStateForAction(\r\n        address batchAddress,\r\n        uint8 currentStatus,\r\n        bytes32 action\r\n    ); // Use uint8 for enum, bytes32 for action identifier\r\n    error SC_ReceiverMismatch(\r\n        address batchAddress,\r\n        address expected,\r\n        address actual\r\n    );\r\n    error SC_InvalidReceiverRole(address receiver, bytes32 expectedRole);\r\n    error SC_BatchTypeUnknownOrActionFailed(\r\n        address batchAddress,\r\n        bytes32 action\r\n    );\r\n    error SC_ArgumentError(bytes32 reason);\r\n    error SC_ExternalCallFailed(\r\n        address target,\r\n        bytes32 action,\r\n        bytes errorData\r\n    ); // Include low-level error data if available\r\n    error SC_HistoryUnavailable(address batchAddress);\r\n    error SC_DelegateCallFailed(bytes32 context); // Context for delegate call failure (e.g., \"initialize\", \"fallback\")\r\n\r\n    // --- Supply Chain Proxy Errors ---\r\n    error PROXY_InvalidLogicAddress(); // If logic address is zero\r\n    error PROXY_LogicAddressHasNoCode(); // If logic address is not a contract\r\n    error PROXY_Initialize_DelegateCall_Failed(); // Generic delegatecall failure\r\n    error PROXY_Initialize_Unexpected_Return_Data(); // If initialize returns data\r\n    error PROXY_Owner_Mismatch_Post_Init(address expectedOwner, address actualOwner); // If owner state isn't set correctly\r\n    error PROXY_AdminRole_Grant_Failed_Post_Init(address owner); // If owner lacks ADMIN_ROLE after init\r\n    error Proxy_LogicAddressZero();\r\n    error Proxy_LogicNoCode();\r\n    error Proxy_InitFailed();\r\n    error Proxy_OwnerMismatch();\r\n    error Proxy_HasRoleFailed();\r\n    error Proxy_DeployerNotAdmin();\r\n    // --- Batch Contract Errors ---\r\n    error Batch_UnauthorizedCaller(address caller, address expected);\r\n    error Batch_InvalidStateForAction(uint8 current, uint8 required); // Use uint8 for enums\r\n    error Batch_AlreadyDestroyed();\r\n    error Med_InvalidStateTransition(uint8 current, uint8 target); // Use uint8 for enums\r\n    error Med_AlreadyDestroyedOrFinalized();\r\n\r\n    bytes32 internal constant CTX_LOGIC_CONTRACT = keccak256(\"logicContractAddress\");\r\n    // --- Coordinate Errors ---\r\n    // Omitted detailed coordinate validation errors for brevity, but could be added\r\n    // error SC_InvalidCoordinateValue(int256 value, bytes32 coordinateType);\r\n}\r\n",
+  "sourcePath": "C:\\Users\\rabra\\OneDrive\\Desktop\\new drug auth\\contracts\\libraries\\Errors.sol",
+  "ast": {
+    "absolutePath": "project:/contracts/libraries/Errors.sol",
+    "exportedSymbols": {
+      "Errors": [
+        2900
+      ],
+      "Medicine": [
+        2385
+      ],
+      "RawMaterial": [
+        2731
+      ]
+    },
+    "id": 2901,
+    "license": "MIT",
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 2733,
+        "literals": [
+          "solidity",
+          "^",
+          "0.8",
+          ".20"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "33:24:4"
+      },
+      {
+        "absolutePath": "project:/contracts/batches/RawMaterial.sol",
+        "file": "../batches/RawMaterial.sol",
+        "id": 2735,
+        "nameLocation": "-1:-1:-1",
+        "nodeType": "ImportDirective",
+        "scope": 2901,
+        "sourceUnit": 2732,
+        "src": "148:55:4",
+        "symbolAliases": [
+          {
+            "foreign": {
+              "id": 2734,
+              "name": "RawMaterial",
+              "nodeType": "Identifier",
+              "overloadedDeclarations": [],
+              "referencedDeclaration": 2731,
+              "src": "156:11:4",
+              "typeDescriptions": {}
+            },
+            "nameLocation": "-1:-1:-1"
+          }
+        ],
+        "unitAlias": ""
+      },
+      {
+        "absolutePath": "project:/contracts/batches/Medicine.sol",
+        "file": "../batches/Medicine.sol",
+        "id": 2737,
+        "nameLocation": "-1:-1:-1",
+        "nodeType": "ImportDirective",
+        "scope": 2901,
+        "sourceUnit": 2386,
+        "src": "205:49:4",
+        "symbolAliases": [
+          {
+            "foreign": {
+              "id": 2736,
+              "name": "Medicine",
+              "nodeType": "Identifier",
+              "overloadedDeclarations": [],
+              "referencedDeclaration": 2385,
+              "src": "213:8:4",
+              "typeDescriptions": {}
+            },
+            "nameLocation": "-1:-1:-1"
+          }
+        ],
+        "unitAlias": ""
+      },
+      {
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "Errors",
+        "contractDependencies": [],
+        "contractKind": "library",
+        "documentation": {
+          "id": 2738,
+          "nodeType": "StructuredDocumentation",
+          "src": "258:224:4",
+          "text": " @title Errors\n @dev Centralized library for custom error definitions used across the supply chain system.\n @notice Using bytes32 for context/reasons and uint8 for enums where applicable for gas efficiency."
+        },
+        "fullyImplemented": true,
+        "id": 2900,
+        "linearizedBaseContracts": [
+          2900
+        ],
+        "name": "Errors",
+        "nameLocation": "492:6:4",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "errorSelector": "83180e9d",
+            "id": 2742,
+            "name": "AccessControlBadAdminRole",
+            "nameLocation": "550:25:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2741,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2740,
+                  "mutability": "mutable",
+                  "name": "role",
+                  "nameLocation": "584:4:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2742,
+                  "src": "576:12:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2739,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "576:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "575:14:4"
+            },
+            "src": "544:46:4"
+          },
+          {
+            "errorSelector": "667c501d",
+            "id": 2748,
+            "name": "AccessControlMissingRole",
+            "nameLocation": "602:24:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2747,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2744,
+                  "mutability": "mutable",
+                  "name": "account",
+                  "nameLocation": "635:7:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2748,
+                  "src": "627:15:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2743,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "627:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2746,
+                  "mutability": "mutable",
+                  "name": "role",
+                  "nameLocation": "652:4:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2748,
+                  "src": "644:12:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2745,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "644:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "626:31:4"
+            },
+            "src": "596:62:4"
+          },
+          {
+            "errorSelector": "dab24d5d",
+            "id": 2754,
+            "name": "AccessControlInvalidAdminRole",
+            "nameLocation": "670:29:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2753,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2750,
+                  "mutability": "mutable",
+                  "name": "account",
+                  "nameLocation": "708:7:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2754,
+                  "src": "700:15:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2749,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "700:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2752,
+                  "mutability": "mutable",
+                  "name": "role",
+                  "nameLocation": "725:4:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2754,
+                  "src": "717:12:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2751,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "717:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "699:31:4"
+            },
+            "src": "664:67:4"
+          },
+          {
+            "errorSelector": "02ec77fe",
+            "id": 2756,
+            "name": "AccessControlOwnerOnly",
+            "nameLocation": "743:22:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2755,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "765:2:4"
+            },
+            "src": "737:31:4"
+          },
+          {
+            "errorSelector": "32cdae1b",
+            "id": 2758,
+            "name": "AccessControlZeroAddress",
+            "nameLocation": "780:24:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2757,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "804:2:4"
+            },
+            "src": "774:33:4"
+          },
+          {
+            "errorSelector": "77c21cb3",
+            "id": 2760,
+            "name": "AccessControlCannotRevokeAdmin",
+            "nameLocation": "819:30:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2759,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "849:2:4"
+            },
+            "src": "813:39:4"
+          },
+          {
+            "errorSelector": "fcb9edeb",
+            "id": 2762,
+            "name": "AccessControlCannotGrantRoleToSelf",
+            "nameLocation": "864:34:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2761,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "898:2:4"
+            },
+            "src": "858:43:4"
+          },
+          {
+            "errorSelector": "e7cf3a60",
+            "id": 2764,
+            "name": "AccessControlAlreadyInitialized",
+            "nameLocation": "913:31:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2763,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "944:2:4"
+            },
+            "src": "907:40:4"
+          },
+          {
+            "errorSelector": "424ba677",
+            "id": 2766,
+            "name": "AccessControlCannotManageAdminRole",
+            "nameLocation": "959:34:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2765,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "993:2:4"
+            },
+            "src": "953:43:4"
+          },
+          {
+            "errorSelector": "40993162",
+            "id": 2770,
+            "name": "SC_InvalidAddress",
+            "nameLocation": "1051:17:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2769,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2768,
+                  "mutability": "mutable",
+                  "name": "context",
+                  "nameLocation": "1077:7:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2770,
+                  "src": "1069:15:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2767,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1069:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1068:17:4"
+            },
+            "src": "1045:41:4"
+          },
+          {
+            "errorSelector": "324ec88b",
+            "id": 2778,
+            "name": "SC_RoleCheckFailed",
+            "nameLocation": "1151:18:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2777,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2772,
+                  "mutability": "mutable",
+                  "name": "target",
+                  "nameLocation": "1178:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2778,
+                  "src": "1170:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2771,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1170:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2774,
+                  "mutability": "mutable",
+                  "name": "role",
+                  "nameLocation": "1194:4:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2778,
+                  "src": "1186:12:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2773,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1186:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2776,
+                  "mutability": "mutable",
+                  "name": "reason",
+                  "nameLocation": "1208:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2778,
+                  "src": "1200:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2775,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1200:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1169:46:4"
+            },
+            "src": "1145:71:4"
+          },
+          {
+            "errorSelector": "fbd2ae20",
+            "id": 2782,
+            "name": "SC_BatchCreationFailed",
+            "nameLocation": "1292:22:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2781,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2780,
+                  "mutability": "mutable",
+                  "name": "batchType",
+                  "nameLocation": "1323:9:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2782,
+                  "src": "1315:17:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2779,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1315:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1314:19:4"
+            },
+            "src": "1286:48:4"
+          },
+          {
+            "errorSelector": "f465316d",
+            "id": 2788,
+            "name": "SC_RawMaterialValidationFailed",
+            "nameLocation": "1392:30:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2787,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2784,
+                  "mutability": "mutable",
+                  "name": "rmAddress",
+                  "nameLocation": "1431:9:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2788,
+                  "src": "1423:17:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2783,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1423:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2786,
+                  "mutability": "mutable",
+                  "name": "reason",
+                  "nameLocation": "1450:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2788,
+                  "src": "1442:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2785,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1442:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1422:35:4"
+            },
+            "src": "1386:72:4"
+          },
+          {
+            "errorSelector": "28df97cf",
+            "id": 2794,
+            "name": "SC_UnauthorizedActor",
+            "nameLocation": "1470:20:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2793,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2790,
+                  "mutability": "mutable",
+                  "name": "actor",
+                  "nameLocation": "1499:5:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2794,
+                  "src": "1491:13:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2789,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1491:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2792,
+                  "mutability": "mutable",
+                  "name": "reason",
+                  "nameLocation": "1514:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2794,
+                  "src": "1506:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2791,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1506:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1490:31:4"
+            },
+            "src": "1464:58:4"
+          },
+          {
+            "errorSelector": "3b36ae5e",
+            "id": 2802,
+            "name": "SC_InvalidStateForAction",
+            "nameLocation": "1534:24:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2801,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2796,
+                  "mutability": "mutable",
+                  "name": "batchAddress",
+                  "nameLocation": "1577:12:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2802,
+                  "src": "1569:20:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2795,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1569:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2798,
+                  "mutability": "mutable",
+                  "name": "currentStatus",
+                  "nameLocation": "1606:13:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2802,
+                  "src": "1600:19:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint8",
+                    "typeString": "uint8"
+                  },
+                  "typeName": {
+                    "id": 2797,
+                    "name": "uint8",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1600:5:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint8",
+                      "typeString": "uint8"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2800,
+                  "mutability": "mutable",
+                  "name": "action",
+                  "nameLocation": "1638:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2802,
+                  "src": "1630:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2799,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1630:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1558:93:4"
+            },
+            "src": "1528:124:4"
+          },
+          {
+            "errorSelector": "3e50a5c8",
+            "id": 2810,
+            "name": "SC_ReceiverMismatch",
+            "nameLocation": "1717:19:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2809,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2804,
+                  "mutability": "mutable",
+                  "name": "batchAddress",
+                  "nameLocation": "1755:12:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2810,
+                  "src": "1747:20:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2803,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1747:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2806,
+                  "mutability": "mutable",
+                  "name": "expected",
+                  "nameLocation": "1786:8:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2810,
+                  "src": "1778:16:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2805,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1778:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2808,
+                  "mutability": "mutable",
+                  "name": "actual",
+                  "nameLocation": "1813:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2810,
+                  "src": "1805:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2807,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1805:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1736:90:4"
+            },
+            "src": "1711:116:4"
+          },
+          {
+            "errorSelector": "95fa6f10",
+            "id": 2816,
+            "name": "SC_InvalidReceiverRole",
+            "nameLocation": "1839:22:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2815,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2812,
+                  "mutability": "mutable",
+                  "name": "receiver",
+                  "nameLocation": "1870:8:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2816,
+                  "src": "1862:16:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2811,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1862:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2814,
+                  "mutability": "mutable",
+                  "name": "expectedRole",
+                  "nameLocation": "1888:12:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2816,
+                  "src": "1880:20:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2813,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1880:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1861:40:4"
+            },
+            "src": "1833:69:4"
+          },
+          {
+            "errorSelector": "4fc97bf3",
+            "id": 2822,
+            "name": "SC_BatchTypeUnknownOrActionFailed",
+            "nameLocation": "1914:33:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2821,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2818,
+                  "mutability": "mutable",
+                  "name": "batchAddress",
+                  "nameLocation": "1966:12:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2822,
+                  "src": "1958:20:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2817,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1958:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2820,
+                  "mutability": "mutable",
+                  "name": "action",
+                  "nameLocation": "1997:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2822,
+                  "src": "1989:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2819,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1989:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1947:63:4"
+            },
+            "src": "1908:103:4"
+          },
+          {
+            "errorSelector": "7c57b100",
+            "id": 2826,
+            "name": "SC_ArgumentError",
+            "nameLocation": "2023:16:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2825,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2824,
+                  "mutability": "mutable",
+                  "name": "reason",
+                  "nameLocation": "2048:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2826,
+                  "src": "2040:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2823,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2040:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2039:16:4"
+            },
+            "src": "2017:39:4"
+          },
+          {
+            "errorSelector": "ff433235",
+            "id": 2834,
+            "name": "SC_ExternalCallFailed",
+            "nameLocation": "2068:21:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2833,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2828,
+                  "mutability": "mutable",
+                  "name": "target",
+                  "nameLocation": "2108:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2834,
+                  "src": "2100:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2827,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2100:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2830,
+                  "mutability": "mutable",
+                  "name": "action",
+                  "nameLocation": "2133:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2834,
+                  "src": "2125:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2829,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2125:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2832,
+                  "mutability": "mutable",
+                  "name": "errorData",
+                  "nameLocation": "2156:9:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2834,
+                  "src": "2150:15:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 2831,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2150:5:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2089:83:4"
+            },
+            "src": "2062:111:4"
+          },
+          {
+            "errorSelector": "a253a474",
+            "id": 2838,
+            "name": "SC_HistoryUnavailable",
+            "nameLocation": "2230:21:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2837,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2836,
+                  "mutability": "mutable",
+                  "name": "batchAddress",
+                  "nameLocation": "2260:12:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2838,
+                  "src": "2252:20:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2835,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2252:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2251:22:4"
+            },
+            "src": "2224:50:4"
+          },
+          {
+            "errorSelector": "e748f1ad",
+            "id": 2842,
+            "name": "SC_DelegateCallFailed",
+            "nameLocation": "2286:21:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2841,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2840,
+                  "mutability": "mutable",
+                  "name": "context",
+                  "nameLocation": "2316:7:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2842,
+                  "src": "2308:15:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 2839,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2308:7:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2307:17:4"
+            },
+            "src": "2280:45:4"
+          },
+          {
+            "errorSelector": "e7112ea6",
+            "id": 2844,
+            "name": "PROXY_InvalidLogicAddress",
+            "nameLocation": "2451:25:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2843,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2476:2:4"
+            },
+            "src": "2445:34:4"
+          },
+          {
+            "errorSelector": "bf91eb8f",
+            "id": 2846,
+            "name": "PROXY_LogicAddressHasNoCode",
+            "nameLocation": "2519:27:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2845,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2546:2:4"
+            },
+            "src": "2513:36:4"
+          },
+          {
+            "errorSelector": "ad596be6",
+            "id": 2848,
+            "name": "PROXY_Initialize_DelegateCall_Failed",
+            "nameLocation": "2599:36:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2847,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2635:2:4"
+            },
+            "src": "2593:45:4"
+          },
+          {
+            "errorSelector": "9aeac623",
+            "id": 2850,
+            "name": "PROXY_Initialize_Unexpected_Return_Data",
+            "nameLocation": "2682:39:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2849,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2721:2:4"
+            },
+            "src": "2676:48:4"
+          },
+          {
+            "errorSelector": "a41af94b",
+            "id": 2856,
+            "name": "PROXY_Owner_Mismatch_Post_Init",
+            "nameLocation": "2766:30:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2855,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2852,
+                  "mutability": "mutable",
+                  "name": "expectedOwner",
+                  "nameLocation": "2805:13:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2856,
+                  "src": "2797:21:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2851,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2797:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2854,
+                  "mutability": "mutable",
+                  "name": "actualOwner",
+                  "nameLocation": "2828:11:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2856,
+                  "src": "2820:19:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2853,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2820:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2796:44:4"
+            },
+            "src": "2760:81:4"
+          },
+          {
+            "errorSelector": "b674e267",
+            "id": 2860,
+            "name": "PROXY_AdminRole_Grant_Failed_Post_Init",
+            "nameLocation": "2891:38:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2859,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2858,
+                  "mutability": "mutable",
+                  "name": "owner",
+                  "nameLocation": "2938:5:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2860,
+                  "src": "2930:13:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2857,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2930:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2929:15:4"
+            },
+            "src": "2885:60:4"
+          },
+          {
+            "errorSelector": "01f28637",
+            "id": 2862,
+            "name": "Proxy_LogicAddressZero",
+            "nameLocation": "2997:22:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2861,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3019:2:4"
+            },
+            "src": "2991:31:4"
+          },
+          {
+            "errorSelector": "9e05bbe1",
+            "id": 2864,
+            "name": "Proxy_LogicNoCode",
+            "nameLocation": "3034:17:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2863,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3051:2:4"
+            },
+            "src": "3028:26:4"
+          },
+          {
+            "errorSelector": "265b3da3",
+            "id": 2866,
+            "name": "Proxy_InitFailed",
+            "nameLocation": "3066:16:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2865,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3082:2:4"
+            },
+            "src": "3060:25:4"
+          },
+          {
+            "errorSelector": "28cc3c90",
+            "id": 2868,
+            "name": "Proxy_OwnerMismatch",
+            "nameLocation": "3097:19:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2867,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3116:2:4"
+            },
+            "src": "3091:28:4"
+          },
+          {
+            "errorSelector": "50f35314",
+            "id": 2870,
+            "name": "Proxy_HasRoleFailed",
+            "nameLocation": "3131:19:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2869,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3150:2:4"
+            },
+            "src": "3125:28:4"
+          },
+          {
+            "errorSelector": "906a789e",
+            "id": 2872,
+            "name": "Proxy_DeployerNotAdmin",
+            "nameLocation": "3165:22:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2871,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3187:2:4"
+            },
+            "src": "3159:31:4"
+          },
+          {
+            "errorSelector": "ef5f75a2",
+            "id": 2878,
+            "name": "Batch_UnauthorizedCaller",
+            "nameLocation": "3240:24:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2877,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2874,
+                  "mutability": "mutable",
+                  "name": "caller",
+                  "nameLocation": "3273:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2878,
+                  "src": "3265:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2873,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3265:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2876,
+                  "mutability": "mutable",
+                  "name": "expected",
+                  "nameLocation": "3289:8:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2878,
+                  "src": "3281:16:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2875,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3281:7:4",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3264:34:4"
+            },
+            "src": "3234:65:4"
+          },
+          {
+            "errorSelector": "7a709d80",
+            "id": 2884,
+            "name": "Batch_InvalidStateForAction",
+            "nameLocation": "3311:27:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2883,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2880,
+                  "mutability": "mutable",
+                  "name": "current",
+                  "nameLocation": "3345:7:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2884,
+                  "src": "3339:13:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint8",
+                    "typeString": "uint8"
+                  },
+                  "typeName": {
+                    "id": 2879,
+                    "name": "uint8",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3339:5:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint8",
+                      "typeString": "uint8"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2882,
+                  "mutability": "mutable",
+                  "name": "required",
+                  "nameLocation": "3360:8:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2884,
+                  "src": "3354:14:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint8",
+                    "typeString": "uint8"
+                  },
+                  "typeName": {
+                    "id": 2881,
+                    "name": "uint8",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3354:5:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint8",
+                      "typeString": "uint8"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3338:31:4"
+            },
+            "src": "3305:65:4"
+          },
+          {
+            "errorSelector": "af0622c5",
+            "id": 2886,
+            "name": "Batch_AlreadyDestroyed",
+            "nameLocation": "3405:22:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2885,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3427:2:4"
+            },
+            "src": "3399:31:4"
+          },
+          {
+            "errorSelector": "d1830ff6",
+            "id": 2892,
+            "name": "Med_InvalidStateTransition",
+            "nameLocation": "3442:26:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2891,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2888,
+                  "mutability": "mutable",
+                  "name": "current",
+                  "nameLocation": "3475:7:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2892,
+                  "src": "3469:13:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint8",
+                    "typeString": "uint8"
+                  },
+                  "typeName": {
+                    "id": 2887,
+                    "name": "uint8",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3469:5:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint8",
+                      "typeString": "uint8"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2890,
+                  "mutability": "mutable",
+                  "name": "target",
+                  "nameLocation": "3490:6:4",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 2892,
+                  "src": "3484:12:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint8",
+                    "typeString": "uint8"
+                  },
+                  "typeName": {
+                    "id": 2889,
+                    "name": "uint8",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3484:5:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint8",
+                      "typeString": "uint8"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3468:29:4"
+            },
+            "src": "3436:62:4"
+          },
+          {
+            "errorSelector": "ae051a9a",
+            "id": 2894,
+            "name": "Med_AlreadyDestroyedOrFinalized",
+            "nameLocation": "3533:31:4",
+            "nodeType": "ErrorDefinition",
+            "parameters": {
+              "id": 2893,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3564:2:4"
+            },
+            "src": "3527:40:4"
+          },
+          {
+            "constant": true,
+            "id": 2899,
+            "mutability": "constant",
+            "name": "CTX_LOGIC_CONTRACT",
+            "nameLocation": "3601:18:4",
+            "nodeType": "VariableDeclaration",
+            "scope": 2900,
+            "src": "3575:80:4",
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_bytes32",
+              "typeString": "bytes32"
+            },
+            "typeName": {
+              "id": 2895,
+              "name": "bytes32",
+              "nodeType": "ElementaryTypeName",
+              "src": "3575:7:4",
+              "typeDescriptions": {
+                "typeIdentifier": "t_bytes32",
+                "typeString": "bytes32"
+              }
+            },
+            "value": {
+              "arguments": [
+                {
+                  "hexValue": "6c6f676963436f6e747261637441646472657373",
+                  "id": 2897,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": true,
+                  "kind": "string",
+                  "lValueRequested": false,
+                  "nodeType": "Literal",
+                  "src": "3632:22:4",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_stringliteral_adb3cde4f603589eb81d921faacdcf3b6b77d3ec764bbeb594f111b17af66d42",
+                    "typeString": "literal_string \"logicContractAddress\""
+                  },
+                  "value": "logicContractAddress"
+                }
+              ],
+              "expression": {
+                "argumentTypes": [
+                  {
+                    "typeIdentifier": "t_stringliteral_adb3cde4f603589eb81d921faacdcf3b6b77d3ec764bbeb594f111b17af66d42",
+                    "typeString": "literal_string \"logicContractAddress\""
+                  }
+                ],
+                "id": 2896,
+                "name": "keccak256",
+                "nodeType": "Identifier",
+                "overloadedDeclarations": [],
+                "referencedDeclaration": 4294967288,
+                "src": "3622:9:4",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_function_keccak256_pure$_t_bytes_memory_ptr_$returns$_t_bytes32_$",
+                  "typeString": "function (bytes memory) pure returns (bytes32)"
+                }
+              },
+              "id": 2898,
+              "isConstant": false,
+              "isLValue": false,
+              "isPure": true,
+              "kind": "functionCall",
+              "lValueRequested": false,
+              "nameLocations": [],
+              "names": [],
+              "nodeType": "FunctionCall",
+              "src": "3622:33:4",
+              "tryCall": false,
+              "typeDescriptions": {
+                "typeIdentifier": "t_bytes32",
+                "typeString": "bytes32"
+              }
+            },
+            "visibility": "internal"
+          }
+        ],
+        "scope": 2901,
+        "src": "484:3374:4",
+        "usedErrors": [
+          2742,
+          2748,
+          2754,
+          2756,
+          2758,
+          2760,
+          2762,
+          2764,
+          2766,
+          2770,
+          2778,
+          2782,
+          2788,
+          2794,
+          2802,
+          2810,
+          2816,
+          2822,
+          2826,
+          2834,
+          2838,
+          2842,
+          2844,
+          2846,
+          2848,
+          2850,
+          2856,
+          2860,
+          2862,
+          2864,
+          2866,
+          2868,
+          2870,
+          2872,
+          2878,
+          2884,
+          2886,
+          2892,
+          2894
+        ],
+        "usedEvents": []
+      }
+    ],
+    "src": "33:3827:4"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.8.20+commit.a1b79de6.Emscripten.clang"
+  },
+  "networks": {},
+  "schemaVersion": "3.4.16",
+  "updatedAt": "2025-04-30T05:18:42.158Z",
+  "devdoc": {
+    "details": "Centralized library for custom error definitions used across the supply chain system.",
+    "kind": "dev",
+    "methods": {},
+    "title": "Errors",
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "notice": "Using bytes32 for context/reasons and uint8 for enums where applicable for gas efficiency.",
+    "version": 1
+  }
+}

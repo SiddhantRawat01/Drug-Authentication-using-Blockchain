@@ -1,0 +1,31 @@
+/* --- Additions for specific form layouts --- */
+
+/* For side-by-side elements within a form group (like Lat/Lon) */
+.form-group-inline {
+  display: flex;
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+  gap: var(--space-4); /* Space between the subgroups */
+  align-items: flex-start; /* Align items at the top */
+}
+
+/* Represents one item within the inline group (e.g., Latitude group) */
+.form-group-inline .form-subgroup {
+  flex: 1; /* Allow subgroups to grow and share space */
+  min-width: 150px; /* Minimum width before wrapping */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2); /* Space between label and input within the subgroup */
+}
+
+/* Optional: Specific styling for inputs within danger zone forms */
+.danger-zone input.danger-input:not(:disabled) {
+    border-color: var(--color-danger);
+    background-color: var(--color-status-error-bg); /* Subtle red background */
+}
+
+.danger-zone input.danger-input:focus {
+  outline: none;
+  border-color: var(--color-danger-hover); /* Darker red border on focus */
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3); /* Red focus ring */
+}
+
