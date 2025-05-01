@@ -19,12 +19,11 @@ project-root/
 
 
 ## Prerequisites
-- Node.js (v18+)
+- Node.js ( v20.15.1 ) 
 - npm (v9+)
 - Truffle Suite (`npm install -g truffle`)
 - MetaMask wallet (configured for Sepolia testnet)
 - for free testnet sepolia currency use Google Faucet ( 0.05 SepoliaETH )
-
 
 ## Blockchain Setup
 
@@ -90,5 +89,5 @@ Ensure MetaMask is configured for Sepolia Testnet:
 
 ## Troubleshooting
 - 🚨 Migration Errors: Verify .env variables and network configuration
-- 🔗 Connection Issues: Ensure consistent network in MetaMask and .env
+- 🔗 Connection Issues: Ensure consistent network in MetaMask and .env ( in case of time out issue or any network issue try to redeploy the contract )
 - 💸 Deployment Failures: Check Sepolia ETH balance on [Sepolia Faucet](https://sepoliafaucet.com/)
