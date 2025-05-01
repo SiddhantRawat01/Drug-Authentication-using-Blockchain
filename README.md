@@ -10,9 +10,12 @@ A blockchain-powered application with React frontend.
 ## Project Structure
 
 project-root/
-├── blockchain/          # Smart contracts and deployment scripts
-│   ├── client/          # React client for blockchain interactions
-├── frontend/            # Main application frontend
+
+├── blockchain/
+
+│   ├── client/
+
+├── frontend/    
 
 
 ## Prerequisites
