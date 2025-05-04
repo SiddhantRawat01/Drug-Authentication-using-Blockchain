@@ -11,9 +11,7 @@ A blockchain-powered application with React frontend.
 
 project-root/
 
-├── blockchain/
-
-│   ├── client/
+├── smart contracts/
 
 ├── frontend/    
 
@@ -29,10 +27,11 @@ project-root/
 
 ### 1. Install Dependencies
 
-cd blockchain
+cd "smart contracts"
 npm install -g truffle
 
 ### 2. Environment Configuration
+
 Create `.env` file in the blockchain root with:
 
 MNEMONIC="your 12-word metamask recovery phrase"
@@ -48,32 +47,28 @@ truffle migrate --network sepolia
 
 **Important:** Ensure sufficient Sepolia test ETH in your deployment account.
 
-### 4. Client Setup
-
-npm install
-cd client
-npm install
-
-
-### 5. Client Environment
-Create `.env` in `client/` with:
-
-- 🔑 REACT_APP_CONTRACT_ADDRESS="deployed_contract_address"
-- 🔑 REACT_APP_NETWORK_ID=11155111
-- 🔑 REACT_APP_NETWORK_NAME=sepolia
-
 📝 Contract address is displayed after successful migration
 
-### 6. Start Client
-
-npm start
+**Important:** Contract address will be display in the terminal of your editor.
 
 
 ## Frontend Setup
 
-
+### 1. Install Dependencies
 - cd frontend
 - npm install
+
+
+### 2. Environment Variable Setup
+Create `.env` in `client/` with:
+
+- 🔑 VITE_APP_CONTRACT_ADDRESS="deployed_contract_address"
+- 🔑 VITE_APP_NETWORK_ID=11155111
+- 🔑 VITE_APP_NETWORK_NAME=sepolia
+
+
+### 3. local host setup
+
 - npm run dev
 
 
