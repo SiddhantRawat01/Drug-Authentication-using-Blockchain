@@ -27,27 +27,27 @@ project-root/
 
 ### 1. Install Dependencies
 
-cd "smart contracts"
-npm install -g truffle
+- `cd "smart contracts"`
+- `npm install -g truffle`
 
 ### 2. Environment Configuration
 
-Create `.env` file in the blockchain root with:
+- Create `.env` file in the blockchain root with:
 
-MNEMONIC="your 12-word metamask recovery phrase"
+- MNEMONIC="your 12-word metamask recovery phrase"
 
-INFURA_KEY="your_infura_project_id"
+- INFURA_KEY="your_infura_project_id"
 
 - 🔑 Get INFURA_KEY from [Infura Dashboard](https://infura.io/)
 - 🔑 MNEMONIC can be obtained from MetaMask ( Settings > Security & privacy > Reveal Secret Recovery Phrase )
 
 ### 3. Contract Deployment
 
-truffle migrate --network sepolia
+- `truffle migrate --network sepolia`
 
 **Important:** Ensure sufficient Sepolia test ETH in your deployment account.
 
-📝 Contract address is displayed after successful migration
+- 📝 Contract address is displayed after successful migration
 
 **Important:** Contract address will be display in the terminal of your editor.
 
@@ -55,8 +55,8 @@ truffle migrate --network sepolia
 ## Frontend Setup
 
 ### 1. Install Dependencies
-- cd frontend
-- npm install
+- `cd frontend`
+- `npm install`
 
 
 ### 2. Environment Variable Setup
@@ -69,7 +69,7 @@ Create `.env` in `client/` with:
 
 ### 3. local host setup
 
-- npm run dev
+- `npm run dev`
 
 
 ## Network Configuration
