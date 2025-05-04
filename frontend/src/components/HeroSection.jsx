@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import "./styles/HeroSection.css";
+import { useNavigate } from 'react-router-dom'
 
 const HeroSection = () => {
   const [loaded, setLoaded] = useState(false);
-
+  const navigate = useNavigate()
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://unpkg.com/@splinetool/viewer@1.9.87/build/spline-viewer.js";
@@ -19,7 +20,7 @@ const HeroSection = () => {
   }, []);
 
   const handleGetStartedClick = () => {
-    window.location.href = "http://localhost:3000";
+    navigate('/dapp');
   };
 
   return (
