@@ -72,9 +72,9 @@ npm start
 ## Frontend Setup
 
 
-cd frontend
-npm install
-npm run dev
+- cd frontend
+- npm install
+- npm run dev
 
 
 ## Network Configuration
