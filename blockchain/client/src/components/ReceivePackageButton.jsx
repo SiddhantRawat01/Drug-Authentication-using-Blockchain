@@ -1,224 +1,313 @@
-// client/src/components/ReceivePackageButton.js
-import React, { useState, useCallback } from 'react';
-import { useWeb3 } from '../contexts/Web3Context'; // Import hook
-import { ROLES, getRoleName } from '../constants/roles'; // Import constants/helpers
-import { ethers } from 'ethers'; // Use ethers v6
+// client/src/components/ReceivePackageButton.jsx
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import PropTypes from 'prop-types';
+import { useWeb3 } from '../contexts/Web3Context';
+import { ROLES, getRoleName } from '../constants/roles';
+import { ethers } from 'ethers';
+import styles from '../styles/ReceivePackageButton.module.css'; // Import CSS Module
 
-/**
- * Reusable button component for receiving a package (RM or Medicine).
- * Performs client-side checks for role and optionally for destination matching.
- * Requires location coordinates to be passed as props.
- *
- * @param {object} props - Component props
- * @param {string} props.batchAddress - The address of the batch contract to receive.
- * @param {string} props.expectedReceiverRole - The role hash (from ROLES) required for the user to receive this package type.
- * @param {string | number} props.latitude - The current latitude coordinate.
- * @param {string | number} props.longitude - The current longitude coordinate.
- * @param {function} [props.onSuccess] - Optional callback function executed on successful receipt, passing the batchAddress back.
- * @param {function} [props.onError] - Optional callback function executed on error, passing the error message.
- */
+// --- Import Shared Helpers & Constants ---
+import {
+    formatAddress,
+    formatHash,
+    RawMaterialStatus,
+    MedicineStatus
+} from './BatchDetails'; // Adjust path as needed
+
+// --- Constants ---
+const COORD_DECIMALS = 6;
+
+// Type Hashes
+const RAW_MATERIAL_TYPE_HASH = ethers.id("RAW_MATERIAL");
+const MEDICINE_TYPE_HASH = ethers.id("MEDICINE");
+
+// Status Codes
+const RM_STATUS_IN_TRANSIT = 1;
+const MED_STATUS_IN_TRANSIT = [1, 3, 5];
+
+const STATUS_TYPE = {
+    IDLE: 'idle', INFO: 'info', LOADING: 'loading', SUCCESS: 'success', ERROR: 'error',
+};
+
+const VALIDATION_MESSAGES = {
+    INVALID_ADDRESS: 'Valid Batch Address required.',
+    INVALID_LOCATION: 'Valid Latitude & Longitude required.',
+    WALLET_CONNECT: 'Wallet not connected.',
+    INSUFFICIENT_ROLE: (roleName) => `Requires ${roleName} role.`,
+    VALIDATING: 'Validating prerequisites...',
+    VALIDATION_FAILED: 'Prerequisite check failed',
+    SENDING: 'Submitting transaction...',
+    WAITING: (txHash) => `Waiting for confirmation... (Tx: ${formatHash(txHash)})`,
+    SUCCESS: (txHash) => `Package Received Successfully! (Tx: ${formatHash(txHash)})`,
+    PREREQ_EXECUTION_ERROR: 'Error during prerequisite check.',
+    TX_REVERTED_ON_CHAIN: 'Transaction failed on-chain.',
+    BATCH_NOT_FOUND: 'Batch not found.',
+    RECEIVER_MISMATCH: "Receive Failed: You are not the intended destination.",
+    INVALID_STATE: (stateName) => `Receive Failed: Batch is not 'In Transit' (Current: ${stateName}).`,
+    UNKNOWN_BATCH_TYPE: 'Unknown batch type.',
+    MISSING_ROLE_ON_CHAIN: (roleName) => `Receive Failed: Account lacks required ${roleName} role on-chain.`,
+    RECEIVE_FAILED_BASE: 'Receive Failed',
+};
+
+// --- Component ---
 function ReceivePackageButton({
     batchAddress,
     expectedReceiverRole,
     latitude,
     longitude,
     onSuccess,
-    onError
+    onError,
 }) {
-    // Get necessary data and functions from Web3 context
-    // Call hook ONCE at the top level
+    // --- Hooks ---
     const {
         contract,
-        account, // The connected account attempting to receive
-        isLoading,
-        setIsLoading,
+        account,
+        signer,
+        isLoading: isGlobalLoading,
+        setIsLoading: setGlobalLoading,
         getRevertReason,
-        setError, // Use context's setError
-        hasRole
+        hasRole,
+        fetchWithLoading,
     } = useWeb3();
 
-    // --- Local State ---
-    const [statusMessage, setStatusMessage] = useState(''); // Local status/error message for this button action
+    // --- State ---
+    const [status, setStatus] = useState({ message: '', type: STATUS_TYPE.IDLE });
+    const [isProcessing, setIsProcessing] = useState(false); // Local loading ONLY for async validation
 
-    // --- Permissions and Pre-checks ---
-    const canReceive = hasRole(expectedReceiverRole); // Does user have the required role?
-    const isValidAddress = ethers.isAddress(batchAddress); // Is the passed address valid? v6 check
-    const hasLocation = latitude !== '' && longitude !== '' && !isNaN(parseFloat(latitude)) && !isNaN(parseFloat(longitude)); // Are valid coords provided?
+    // --- Memoized Values ---
+    const hasRequiredRole = useMemo(() => {
+        const result = hasRole(expectedReceiverRole);
+        // console.log(`[ReceiveButton Memo] Checking role ${expectedReceiverRole}: ${result}`); // Optional inner log
+        return result;
+    }, [hasRole, expectedReceiverRole]);
 
-    // --- Client-Side Validation (Optional but Recommended) ---
-    // This checks if the user is the *intended* destination and if the batch is in transit.
-    const validateReceipt = useCallback(async () => {
-        if (!contract || !account || !isValidAddress) {
-            return "Invalid batch address or connection issue.";
-        }
+    const isValidAddress = useMemo(() => {
+        const result = ethers.isAddress(batchAddress);
+        // console.log(`[ReceiveButton Memo] Checking address ${batchAddress}: ${result}`); // Optional inner log
+        return result;
+    }, [batchAddress]);
 
-        try {
-            const type = await contract.batchType(batchAddress);
-            if (type === ethers.ZeroHash) return "Batch not found."; // v6 check
+    const hasValidLocation = useMemo(() => {
+        const latStr = String(latitude ?? '').trim();
+        const lonStr = String(longitude ?? '').trim();
+        if (latStr === '' || lonStr === '') return false;
+        const latNum = parseFloat(latStr);
+        const lonNum = parseFloat(lonStr);
+        const result = !isNaN(latNum) && isFinite(latNum) && !isNaN(lonNum) && isFinite(lonNum);
+        // console.log(`[ReceiveButton Memo] Checking location (${latitude}, ${longitude}): ${result}`); // Optional inner log
+        return result;
+    }, [latitude, longitude]);
 
-            let details;
-            let expectedState; // State enum value when it should be receivable
+    const receiverRoleName = useMemo(() => getRoleName(expectedReceiverRole), [expectedReceiverRole]);
 
-            // Fetch details and determine expected state based on type
-            if (type === ROLES.RAW_MATERIAL) {
-                details = await contract.getRawMaterialDetails(batchAddress);
-                expectedState = 1; // 1 = InTransit for RawMaterial
-                // Check if current user is the intended manufacturer
-                if (details.intendedManufacturer.toLowerCase() !== account.toLowerCase()) {
-                    return `Destination Mismatch: You (${account.substring(0,6)}...) are not the intended manufacturer (${details.intendedManufacturer.substring(0,6)}...).`;
-                }
-            } else if (type === ROLES.MEDICINE) {
-                details = await contract.getMedicineDetails(batchAddress);
-                // Check if current user is the current destination address
-                if (details.currentDestination.toLowerCase() !== account.toLowerCase()) {
-                     return `Destination Mismatch: You (${account.substring(0,6)}...) are not the current destination (${details.currentDestination.substring(0,6)}...) for this batch.`;
-                 }
-                // Check if status is one of the InTransit states for Medicine
-                 // Status enum: 1: InTransitToW, 3: InTransitToD, 5: InTransitToC
-                 const currentStatus = Number(details.status); // Convert BigInt status
-                 if (currentStatus !== 1 && currentStatus !== 3 && currentStatus !== 5) {
-                    return `Invalid State: Medicine batch is not currently In Transit (Status: ${currentStatus}).`;
-                 }
-                 // No single expectedState for medicine, just needs to be one of the InTransit states
-                 expectedState = -1; // Use -1 to signify check passed if in any transit state
+    // --- Button Disabled Logic ---
+    const isDisabled = isProcessing || isGlobalLoading || !contract || !account || !signer || !hasRequiredRole || !isValidAddress || !hasValidLocation;
 
-            } else {
-                 return "Unknown batch type, cannot validate receipt.";
-            }
+    // --- Callbacks ---
+    const clearStatus = useCallback(() => {
+        setStatus({ message: '', type: STATUS_TYPE.IDLE });
+        if (onError) onError(null);
+    }, [onError]);
 
-            // Check Status (for RM, or just ensure Med was in *a* transit state)
-             if (type === ROLES.RAW_MATERIAL && Number(details.status) !== expectedState) {
-                 return `Invalid State: Raw Material is not currently In Transit (Status: ${Number(details.status)}).`;
-             }
+    // Clear status only on component mount
+    useEffect(() => {
+        clearStatus();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Runs once on mount
 
-            return null; // Validation passed
+    /** Asynchronous prerequisite validation */
+    const validateReceiptPrerequisitesAsync = useCallback(async () => {
+        // (Logic remains the same as previous version - includes try/catch and specific checks)
+         if (!contract || !account || !signer || !isValidAddress) {
+             throw new Error(VALIDATION_MESSAGES.WALLET_CONNECT);
+         }
+         const executeRead = fetchWithLoading ?? ((func) => func());
+         try {
+             const fetchedBatchType = await executeRead(() => contract.batchType(batchAddress));
+             if (fetchedBatchType === ethers.ZeroHash) throw new Error(VALIDATION_MESSAGES.BATCH_NOT_FOUND);
+             let details, currentStatus, destinationAddress, currentStateName = 'Unknown';
+             if (fetchedBatchType === RAW_MATERIAL_TYPE_HASH) {
+                 details = await executeRead(() => contract.getRawMaterialDetails(batchAddress));
+                 destinationAddress = details[3]; currentStatus = Number(details[5]);
+                 currentStateName = RawMaterialStatus[currentStatus] ?? `Unknown (${currentStatus})`;
+                 if (currentStatus !== RM_STATUS_IN_TRANSIT) throw new Error(VALIDATION_MESSAGES.INVALID_STATE(currentStateName));
+             } else if (fetchedBatchType === MEDICINE_TYPE_HASH) {
+                 details = await executeRead(() => contract.getMedicineDetails(batchAddress));
+                 destinationAddress = details[9]; currentStatus = Number(details[6]);
+                 currentStateName = MedicineStatus[currentStatus] ?? `Unknown (${currentStatus})`;
+                 if (!MED_STATUS_IN_TRANSIT.includes(currentStatus)) throw new Error(VALIDATION_MESSAGES.INVALID_STATE(currentStateName));
+             } else { throw new Error(VALIDATION_MESSAGES.UNKNOWN_BATCH_TYPE); }
+             if (destinationAddress.toLowerCase() !== account.toLowerCase()) throw new Error(VALIDATION_MESSAGES.RECEIVER_MISMATCH);
+             return true;
+         } catch (err) {
+             console.error("Receipt prerequisite validation raw error:", err);
+             const knownError = Object.values(VALIDATION_MESSAGES).some(msgTmpl => typeof msgTmpl === 'function' ? msgTmpl('role').startsWith(err.message?.split(':')[0]) : msgTmpl === err.message );
+             const message = knownError ? err.message : `${VALIDATION_MESSAGES.VALIDATION_FAILED}: ${getRevertReason(err) || err.message || VALIDATION_MESSAGES.PREREQ_EXECUTION_ERROR}`;
+             throw new Error(message);
+         }
+    }, [ contract, account, signer, batchAddress, isValidAddress, fetchWithLoading, getRevertReason ]);
 
-        } catch (err) {
-            console.error("Receive Package Validation Error:", err);
-            return `Validation Error: ${getRevertReason(err)}`;
-        }
-    }, [contract, account, batchAddress, isValidAddress, getRevertReason]); // Dependencies
-
-    // --- Button Click Handler ---
+    /** Button click handler */
     const handleReceive = useCallback(async () => {
-        setStatusMessage(''); // Clear previous status
-        if (onError) onError(null); // Clear parent error state
+        console.log("[handleReceive] Clicked!"); // Log click event
+        clearStatus();
 
-        // --- Initial Checks ---
-        if (!contract || !account || !canReceive || !isValidAddress || !hasLocation) {
-            const errorMsg = "Cannot receive: Wallet/contract issue, invalid batch address, missing role, or location missing.";
-            setStatusMessage(`Error: ${errorMsg}`);
-            if (onError) onError(errorMsg);
+        // --- Re-check conditions just in case ---
+        if (!contract || !account || !signer) { setStatus({ message: VALIDATION_MESSAGES.WALLET_CONNECT, type: STATUS_TYPE.ERROR }); return; }
+        if (!hasRequiredRole) { setStatus({ message: VALIDATION_MESSAGES.INSUFFICIENT_ROLE(receiverRoleName), type: STATUS_TYPE.ERROR }); return; }
+        if (!isValidAddress) { setStatus({ message: VALIDATION_MESSAGES.INVALID_ADDRESS, type: STATUS_TYPE.ERROR }); return; }
+        if (!hasValidLocation) { setStatus({ message: VALIDATION_MESSAGES.INVALID_LOCATION, type: STATUS_TYPE.ERROR }); return; }
+
+         setIsProcessing(true);
+        setStatus({ message: VALIDATION_MESSAGES.VALIDATING, type: STATUS_TYPE.LOADING });
+
+        // Async Prerequisite Validation
+        try {
+            await validateReceiptPrerequisitesAsync();
+        } catch (prereqError) {
+            setStatus({ message: prereqError.message, type: STATUS_TYPE.ERROR });
+            if (onError) onError(prereqError.message);
+            setIsProcessing(false);
             return;
         }
 
-        setIsLoading(true); // Set loading state
-        setStatusMessage('Validating package receipt...');
+        // Validation passed, proceed to transaction
+        setIsProcessing(false);
+        setGlobalLoading(true);
+        setStatus({ message: VALIDATION_MESSAGES.SENDING, type: STATUS_TYPE.LOADING });
 
-        // --- Perform Client-Side Validation ---
-        const validationError = await validateReceipt();
-        if (validationError) {
-            setStatusMessage(`Error: ${validationError}`);
-            setIsLoading(false); // Stop loading
-            if (onError) onError(validationError); // Report error
-            return; // Prevent transaction submission
-        }
-        // --- End Validation ---
+        let tx = null; // <-- Declare tx variable here to access in catch
+        let receipt = null; // <-- Declare receipt variable here
 
-        setStatusMessage('Submitting transaction...');
-
-        // --- Transaction Processing ---
         try {
-            // 1. Prepare data
-            const latNum = parseFloat(latitude);
-            const lonNum = parseFloat(longitude);
-            // Convert coordinates to BigInt (for int256 in Solidity - ethers v6)
-            const latInt = Math.round(latNum * 1e6);
-            const lonInt = Math.round(lonNum * 1e6);
+            const latScaled = ethers.parseUnits(String(latitude), COORD_DECIMALS);
+            const lonScaled = ethers.parseUnits(String(longitude), COORD_DECIMALS);
 
-            // 2. Call the contract function
-            const tx = await contract.receivePackage(
-                batchAddress,
-                latInt,
-                lonInt
-                // { from: account } // Implicit with signer
-            );
+            // Assign tx here
+            tx = await contract.receivePackage(batchAddress, latScaled, lonScaled);
 
-            setStatusMessage(`Transaction sent: ${tx.hash}. Waiting for confirmation...`);
+            setStatus({ message: VALIDATION_MESSAGES.WAITING(tx.hash), type: STATUS_TYPE.LOADING });
+            console.log("[handleReceive] Tx submitted:", tx.hash);
 
-            // 3. Wait for the transaction to be mined
-            const receipt = await tx.wait();
+            // Assign receipt here
+            receipt = await tx.wait(1);
+            const confirmedTxHash = receipt?.hash;
+            console.log("[handleReceive] Receipt received. Confirmed Tx Hash:", confirmedTxHash);
 
-            // 4. Handle Success
-            setStatusMessage(`Package Received Successfully! Tx: ${receipt.hash}`);
-            if (onSuccess) onSuccess(batchAddress); // Execute success callback, pass address back
-
-            // No form reset needed for a button, parent component handles input clearing if desired
-
-        } catch (err) {
-            // 5. Handle Errors
-            console.error("Receive Package Error:", err);
-            const reason = getRevertReason(err);
-            // Provide specific feedback based on common contract errors
-             if (reason.includes("ReceiverMismatch")) {
-                setStatusMessage("Error: Receive Failed - You are not the intended receiver/destination for this batch according to the contract.");
-            } else if (reason.includes("InvalidStateForAction")) {
-                 setStatusMessage("Error: Receive Failed - The batch is not in the correct 'In Transit' state to be received.");
-            } else if (reason.includes("AccessControlMissingRole")) {
-                 // This usually refers to the *receiver's* role check within the contract
-                 setStatusMessage(`Error: Receive Failed - Your account lacks the required role (${getRoleName(expectedReceiverRole)}) on-chain.`);
-            } else {
-                setStatusMessage(`Error: Receive Failed - ${reason}`);
+            if (!receipt || receipt.status === 0) {
+                const onChainReason = receipt ? await getRevertReason(receipt.hash) : 'Receipt unavailable';
+                console.error("[handleReceive] Tx REVERTED or Receipt missing:", onChainReason);
+                throw new Error(`${VALIDATION_MESSAGES.TX_REVERTED_ON_CHAIN}${onChainReason ? ': ' + onChainReason : ''} (Tx: ${formatHash(confirmedTxHash)})`);
             }
-            if (onError) onError(statusMessage); // Pass final error message via callback
+
+            // --- Success Path ---
+             if (!confirmedTxHash || typeof confirmedTxHash !== 'string' || !confirmedTxHash.startsWith('0x') || confirmedTxHash.length !== 66) {
+                 console.error("[handleReceive] Invalid confirmedTxHash detected:", confirmedTxHash);
+                 setStatus({ message: `${VALIDATION_MESSAGES.SUCCESS('')} (Error retrieving Tx Hash)`, type: STATUS_TYPE.SUCCESS });
+             } else {
+                 const successMsg = VALIDATION_MESSAGES.SUCCESS(confirmedTxHash);
+                 setStatus({ message: successMsg, type: STATUS_TYPE.SUCCESS });
+             }
+             if (onSuccess) onSuccess(batchAddress, confirmedTxHash || 'Unavailable');
+
+
+        } catch (submitError) {
+            console.error("[handleReceive] Submit/Wait Error (Raw):", submitError);
+            const reason = getRevertReason(submitError);
+            // *** CORRECTED ERROR MESSAGE GENERATION ***
+            // Use tx?.hash if available, otherwise indicate hash is unavailable or use a generic message
+            const txHashForError = tx?.hash;
+            let baseErrorMessage = `${VALIDATION_MESSAGES.RECEIVE_FAILED_BASE}: ${reason || submitError.message}`;
+            let userErrorMessage = baseErrorMessage;
+
+            // Refine specific known contract reverts (don't reference receipt here)
+            if (reason?.includes("ReceiverMismatch")) userErrorMessage = VALIDATION_MESSAGES.RECEIVER_MISMATCH;
+            else if (reason?.includes("InvalidStateForAction")) userErrorMessage = VALIDATION_MESSAGES.INVALID_STATE('details unavailable');
+            else if (reason?.includes("AccessControlMissingRole")) userErrorMessage = VALIDATION_MESSAGES.MISSING_ROLE_ON_CHAIN(receiverRoleName);
+            // Check if the error message *itself* already contains the formatted TX reverted string
+            else if (submitError.message?.includes(VALIDATION_MESSAGES.TX_REVERTED_ON_CHAIN)) {
+                 userErrorMessage = submitError.message; // Use the specific revert message from the try block's throw
+            }
+            // Add tx hash info if available
+            else if (txHashForError) {
+                userErrorMessage = `${baseErrorMessage} (Tx: ${formatHash(txHashForError)})`;
+            }
+
+            console.error("[handleReceive] Setting Error Status:", userErrorMessage);
+            setStatus({ message: userErrorMessage, type: STATUS_TYPE.ERROR });
+            if (onError) onError(userErrorMessage); // Pass the refined message
+
         } finally {
-            // 6. Reset Loading State
-            setIsLoading(false);
+            setGlobalLoading(false);
         }
-    }, [ // Dependencies for useCallback
-        contract, account, canReceive, batchAddress, isValidAddress, hasLocation, latitude, longitude,
-        validateReceipt, setIsLoading, getRevertReason, onSuccess, onError, expectedReceiverRole
+    }, [ /* ... all dependencies ... */
+        contract, account, signer, hasRequiredRole, receiverRoleName, batchAddress, isValidAddress, hasValidLocation, latitude, longitude,
+        validateReceiptPrerequisitesAsync, setGlobalLoading, getRevertReason, onSuccess, onError, clearStatus
     ]);
 
-    // --- Render Logic ---
+    // --- Determine Button Tooltip ---
+    const getButtonTitle = () => {
+        // (Logic remains the same)
+        if (!contract || !account || !signer) return VALIDATION_MESSAGES.WALLET_CONNECT;
+        if (!hasRequiredRole) return VALIDATION_MESSAGES.INSUFFICIENT_ROLE(receiverRoleName);
+        if (!isValidAddress) return VALIDATION_MESSAGES.INVALID_ADDRESS;
+        if (!hasValidLocation) return VALIDATION_MESSAGES.INVALID_LOCATION;
+        return `Confirm receipt of batch ${isValidAddress ? formatAddress(batchAddress) : ''}`;
+    };
 
-    // Determine if the button should be interactable
-    const isDisabled = isLoading || !contract || !account || !canReceive || !isValidAddress || !hasLocation;
-    const buttonTitle = !canReceive ? `Requires ${getRoleName(expectedReceiverRole)} role` :
-                       !isValidAddress ? "Enter a valid batch address first" :
-                       !hasLocation ? "Requires current location coordinates" :
-                       "Confirm receipt of this package";
 
+    // --- ***** ADD DEBUG LOGS BEFORE RENDER ***** ---
+    console.log(`%c --- ReceiveButton Render Check (${batchAddress}) ---`, 'color: blue; font-weight: bold;');
+    console.log(`Props Received: batchAddress=${batchAddress}, role=${expectedReceiverRole}, lat=${latitude}, lon=${longitude}`);
+    console.log(`Context State: contract=${!!contract}, account=${account}, signer=${!!signer}, isGlobalLoading=${isGlobalLoading}`);
+    console.log(`Button State: isProcessing=${isProcessing}`);
+    console.log(`Validation Checks: hasRequiredRole=${hasRequiredRole} (for ${receiverRoleName}), isValidAddress=${isValidAddress}, hasValidLocation=${hasValidLocation}`);
+    console.log(`>>> FINAL isDisabled = ${isDisabled}`);
+    console.log(`%c -----------------------------------------`, 'color: blue; font-weight: bold;');
+    // --- ***** END DEBUG LOGS ***** ---
+
+    // --- Render ---
     return (
-        // Render a container for the button and its status message
-        <div className="receive-package-action" style={{marginTop: '10px'}}>
+        <div className={styles.actionContainer}>
             <button
+                type="button"
                 onClick={handleReceive}
-                disabled={isDisabled}
-                title={buttonTitle} // Provide hint on hover, especially when disabled
-                className="primary" // Or another appropriate style
+                disabled={isDisabled} // Directly use the calculated isDisabled state
+                title={getButtonTitle()}
+                className={`${styles.button} ${styles.receiveButton}`}
             >
-                {isLoading ? 'Processing Receipt...' : 'Confirm Package Received'}
+                {isProcessing || isGlobalLoading ? (
+                    <span className={styles.loadingIndicator}>
+                        <span className={styles.spinner}></span>
+                        Processing...
+                    </span>
+                 ) : 'Confirm Package Received'}
             </button>
 
-            {/* Display Action Status/Error Message */}
-            {statusMessage && (
-                 <p
-                    className={statusMessage.startsWith("Error:") ? "error-message" : "info-message"}
-                    style={{fontSize: '0.9em', margin: '8px 0 0 0'}} // Style message below button
-                 >
-                     {statusMessage}
+            {/* Display Status/Error Message */}
+            {status.message && status.type !== STATUS_TYPE.IDLE && (
+                 <p className={`${styles.statusMessage} ${styles[`statusMessage--${status.type}`]}`}>
+                     {status.message}
                  </p>
-             )}
-
-             {/* Optionally show a specific warning if only location is missing */}
-             {!hasLocation && canReceive && isValidAddress && (
-                  <p style={{fontSize: '0.8em', color: 'orange', margin: '5px 0 0 0'}}>
-                      Please provide your current location coordinates.
-                  </p>
              )}
         </div>
     );
 }
+
+// --- PropTypes --- (Keep as is)
+ReceivePackageButton.propTypes = {
+    batchAddress: PropTypes.string.isRequired,
+    expectedReceiverRole: PropTypes.string.isRequired,
+    latitude: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    longitude: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    onSuccess: PropTypes.func,
+    onError: PropTypes.func,
+};
+
+// --- Default Props --- (Keep as is)
+ReceivePackageButton.defaultProps = {
+    onSuccess: () => {},
+    onError: () => {},
+};
 
 export default ReceivePackageButton;

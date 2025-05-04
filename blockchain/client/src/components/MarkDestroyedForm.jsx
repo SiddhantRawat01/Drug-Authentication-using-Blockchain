@@ -1,309 +1,410 @@
-// client/src/components/MarkDestroyedForm.js
-import React, { useState, useCallback } from 'react';
-import { useWeb3 } from '../contexts/Web3Context'; // Import hook
-import { ROLES, getRoleName } from '../constants/roles'; // Import constants/helpers
-import { ethers } from 'ethers'; // Use ethers v6
-import '../styles/MarkDestroyedForm.css';
-/**
- * Reusable form component for marking a batch (RM or Medicine) as destroyed.
- * Checks if the user has one of the allowed roles before enabling submission.
- * Performs optional client-side checks based on batch type and ownership/status.
- *
- * @param {object} props - Component props
- * @param {string[]} props.allowedDestroyerRoles - Array of role hashes (from ROLES) allowed to perform this action.
- * @param {'RAW_MATERIAL' | 'MEDICINE' | 'ANY'} props.batchTypeContext - Helps guide client-side validation (use 'ANY' for Admin).
- * @param {function} props.onSuccess - Callback function executed on successful destruction marking.
- * @param {function} props.onError - Callback function executed on error, passing the error message.
- */
+// client/src/components/MarkDestroyedForm.jsx // Rename to .jsx
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import PropTypes from 'prop-types';
+import { useWeb3 } from '../contexts/Web3Context';
+import { ROLES, getRoleName } from '../constants/roles';
+import { ethers } from 'ethers';
+import styles from '../styles/MarkDestroyedForm.module.css'; // Import CSS Module
+import { formatHash } from './BatchDetails';
+// --- Constants ---
+const COORD_DECIMALS = 6; // Decimals for coordinate scaling
+const REASON_MAX_LENGTH = 31; // Max length for bytes32 string
+const ADDRESS_REGEX_SOURCE = '^0x[a-fA-F0-9]{40}$'; // Regex source for pattern attribute
+
+// Ideally, get these from a shared constants file
+const RAW_MATERIAL_TYPE_HASH = ethers.id("RAW_MATERIAL");
+const MEDICINE_TYPE_HASH = ethers.id("MEDICINE");
+
+const STATUS_TYPE = {
+    INFO: 'info',
+    LOADING: 'loading',
+    SUCCESS: 'success',
+    ERROR: 'error',
+};
+
+// Define specific status codes for clarity (match Solidity enums)
+const STATUS_CODES = {
+    RAW_MATERIAL: { DESTROYED: 3 },
+    MEDICINE: { CONSUMED_SOLD: 7, DESTROYED: 8 },
+};
+
+// --- Validation Messages ---
+const VALIDATION_MESSAGES = {
+    INVALID_ADDRESS: (field) => `${field}: Please enter a valid Ethereum address (0x...).`,
+    INVALID_NUMBER: (field) => `${field}: ${field} must be a valid number.`,
+    REQUIRED: (field) => `${field} is required.`,
+    REASON_LENGTH: `Reason cannot exceed ${REASON_MAX_LENGTH} characters.`,
+    WALLET_CONNECT: 'Wallet not connected or contract not loaded.',
+    INSUFFICIENT_ROLE: (roles) => `Requires ${roles} role(s).`,
+    VALIDATING: 'Validating prerequisites...',
+    VALIDATION_FAILED: 'Prerequisite check failed',
+    SENDING: 'Submitting transaction...',
+    WAITING: (txHash) => `Waiting for confirmation... (Tx: ${txHash})`,
+    SUCCESS: (txHash) => `Batch Marked as Destroyed! (Tx: ${txHash})`,
+    TX_REVERTED: 'Transaction failed on-chain.',
+    BATCH_NOT_FOUND: 'Batch not found at the specified address.',
+    ALREADY_DESTROYED: 'Batch has already been destroyed.',
+    ALREADY_FINALIZED: 'Medicine batch has already been consumed/sold or destroyed.',
+    OWNERSHIP_MISMATCH_RM: 'Access Denied: You are not the supplier of this Raw Material batch.',
+    OWNERSHIP_MISMATCH_MED: 'Access Denied: You are not the current owner of this Medicine batch.',
+    CONTEXT_MISMATCH_RM: 'Internal Error: Form configuration incorrect for Raw Material.',
+    CONTEXT_MISMATCH_MED: 'Internal Error: Form configuration incorrect for Medicine.',
+    UNKNOWN_BATCH_TYPE: 'Unknown batch type found.',
+    STATUS_CHECK_ERROR: 'Failed to verify batch status.',
+    DESTROY_FAILED_BASE: 'Mark Destroyed Failed',
+};
+
+
+// --- Component ---
 function MarkDestroyedForm({
-    allowedDestroyerRoles = [], // Default to empty array
-    batchTypeContext, // Can be 'RAW_MATERIAL', 'MEDICINE', or 'ANY'
+    allowedDestroyerRoles = [],
+    batchTypeContext, // 'RAW_MATERIAL', 'MEDICINE', or 'ANY'
     onSuccess,
     onError
 }) {
-    // Get necessary data and functions from Web3 context
-    // Call hook ONCE at the top level
+    // --- Hooks ---
     const {
         contract,
-        account, // The connected account attempting the action
-        isLoading,
-        setIsLoading,
+        account,
+        isLoading: isGlobalLoading,
+        setIsLoading: setGlobalLoading,
         getRevertReason,
-        setError, // Use context's setError
-        hasRole
+        hasRole,
+        fetchWithLoading, // Use if available
     } = useWeb3();
 
-    // --- Form State Variables ---
-    const [batchAddress, setBatchAddress] = useState('');
-    const [reason, setReason] = useState(''); // User-provided reason string
-    const [latitude, setLatitude] = useState(''); // Location where destruction occurs
-    const [longitude, setLongitude] = useState('');
-    const [formStatus, setFormStatus] = useState(''); // Local status/error message for this form
+    // --- State ---
+    const [formData, setFormData] = useState({
+        batchAddress: '',
+        reason: '',
+        latitude: '',
+        longitude: '',
+    });
+    const [validationErrors, setValidationErrors] = useState({});
+    const [status, setStatus] = useState({ message: '', type: STATUS_TYPE.INFO });
+    const [isLocalLoading, setIsLocalLoading] = useState(false);
 
-    // --- Permissions Check ---
-    // Check if the current user has AT LEAST ONE of the roles allowed to destroy
-    const canDestroy = allowedDestroyerRoles.some(role => hasRole(role));
-    // Get the names of the allowed roles for display
-    const allowedRoleNames = allowedDestroyerRoles.map(role => getRoleName(role)).join(' or ');
+    const isLoading = isGlobalLoading || isLocalLoading;
 
-    // --- Client-Side Validation (Optional but Recommended) ---
-    // This checks ownership and status *before* sending the transaction
-    const validateDestroyAction = useCallback(async () => {
-        if (!contract || !account || !ethers.isAddress(batchAddress)) { // v6 check
-            return "Invalid batch address or connection issue.";
+    // --- Memoized Values ---
+    const canDestroy = useMemo(() => allowedDestroyerRoles.some(role => hasRole(role)), [allowedDestroyerRoles, hasRole]);
+    const allowedRoleNames = useMemo(() => allowedDestroyerRoles.map(role => getRoleName(role)).join(' or '), [allowedDestroyerRoles]);
+
+    // --- Effects ---
+    // Clear errors on input change
+    useEffect(() => {
+        setValidationErrors({});
+    }, [formData]);
+
+    // --- Callbacks ---
+    const handleInputChange = useCallback((e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }, []);
+
+    const clearStatus = useCallback(() => {
+        setStatus({ message: '', type: STATUS_TYPE.INFO });
+        setValidationErrors({});
+        if (onError) onError(null);
+    }, [onError]);
+
+    // --- Validation ---
+    const validateSync = useCallback(() => {
+        const errors = {};
+        const { batchAddress, reason, latitude, longitude } = formData;
+
+        if (!batchAddress) errors.batchAddress = VALIDATION_MESSAGES.REQUIRED('Batch Address');
+        else if (!ethers.isAddress(batchAddress)) errors.batchAddress = VALIDATION_MESSAGES.INVALID_ADDRESS('Batch Address');
+
+        if (!reason) errors.reason = VALIDATION_MESSAGES.REQUIRED('Reason');
+        else if (new TextEncoder().encode(reason).length > REASON_MAX_LENGTH) { // Check byte length for bytes32
+             errors.reason = VALIDATION_MESSAGES.REASON_LENGTH;
         }
 
-        // Admin role bypasses ownership/status checks (contract enforces this anyway)
-        if (hasRole(ROLES.ADMIN_ROLE)) {
-            // Admin might still want to check if it's *already* destroyed
-             try {
-                 const type = await contract.batchType(batchAddress);
-                 if (type === ethers.ZeroHash) return "Batch not found."; // v6 check
+        if (!latitude) errors.latitude = VALIDATION_MESSAGES.REQUIRED('Latitude');
+        else if (isNaN(Number(latitude)) || !isFinite(Number(latitude))) errors.latitude = VALIDATION_MESSAGES.INVALID_NUMBER('Latitude');
 
-                 if (type === ROLES.RAW_MATERIAL) {
-                     const details = await contract.getRawMaterialDetails(batchAddress);
-                     if (Number(details.status) === 3) return "Batch is already destroyed."; // 3 = Destroyed
-                 } else if (type === ROLES.MEDICINE) {
-                     const details = await contract.getMedicineDetails(batchAddress);
-                     // 7 = ConsumedOrSold, 8 = Destroyed
-                     if (Number(details.status) === 7 || Number(details.status) === 8) {
-                         return "Batch is already finalized or destroyed.";
-                     }
+        if (!longitude) errors.longitude = VALIDATION_MESSAGES.REQUIRED('Longitude');
+        else if (isNaN(Number(longitude)) || !isFinite(Number(longitude))) errors.longitude = VALIDATION_MESSAGES.INVALID_NUMBER('Longitude');
+
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    }, [formData]);
+
+    const validateAsyncPrerequisites = useCallback(async () => {
+        if (!contract || !account) throw new Error(VALIDATION_MESSAGES.WALLET_CONNECT);
+        const { batchAddress } = formData; // Get current address
+
+        const executeRead = fetchWithLoading ?? ((func) => func());
+        const isAdmin = hasRole(ROLES.ADMIN_ROLE); // Check if user is admin
+
+        try {
+            // --- Fetch Batch Type ---
+            const type = await executeRead(() => contract.batchType(batchAddress));
+            if (type === ethers.ZeroHash) throw new Error(VALIDATION_MESSAGES.BATCH_NOT_FOUND);
+
+            // --- Type-Specific Checks ---
+            if (type === RAW_MATERIAL_TYPE_HASH) {
+                // Context check
+                if (!isAdmin && batchTypeContext !== 'RAW_MATERIAL' && batchTypeContext !== 'ANY') {
+                    throw new Error(VALIDATION_MESSAGES.CONTEXT_MISMATCH_RM);
+                }
+                // Fetch details
+                const details = await executeRead(() => contract.getRawMaterialDetails(batchAddress));
+                const currentStatus = Number(details.status);
+
+                // Status check
+                if (currentStatus === STATUS_CODES.RAW_MATERIAL.DESTROYED) {
+                    throw new Error(VALIDATION_MESSAGES.ALREADY_DESTROYED);
+                }
+                // Ownership check (only if not Admin)
+                if (!isAdmin && details.supplier.toLowerCase() !== account.toLowerCase()) {
+                    throw new Error(VALIDATION_MESSAGES.OWNERSHIP_MISMATCH_RM);
+                }
+
+            } else if (type === MEDICINE_TYPE_HASH) {
+                 // Context check
+                 if (!isAdmin && batchTypeContext !== 'MEDICINE' && batchTypeContext !== 'ANY') {
+                     throw new Error(VALIDATION_MESSAGES.CONTEXT_MISMATCH_MED);
+                 }
+                 // Fetch details
+                 const details = await executeRead(() => contract.getMedicineDetails(batchAddress));
+                 const currentStatus = Number(details.status);
+
+                 // Status check
+                 if (currentStatus === STATUS_CODES.MEDICINE.CONSUMED_SOLD || currentStatus === STATUS_CODES.MEDICINE.DESTROYED) {
+                     throw new Error(VALIDATION_MESSAGES.ALREADY_FINALIZED);
+                 }
+                 // Ownership check (only if not Admin)
+                 if (!isAdmin && details.currentOwner.toLowerCase() !== account.toLowerCase()) {
+                     throw new Error(VALIDATION_MESSAGES.OWNERSHIP_MISMATCH_MED);
+                 }
+
+            } else {
+                 // Handle truly unknown types detected by the contract
+                 console.warn("Unknown batch type hash received from contract:", type);
+                 throw new Error(VALIDATION_MESSAGES.UNKNOWN_BATCH_TYPE);
+            }
+
+            return true; // Validation passed
+
+        } catch (err) {
+            console.error("Destroy prerequisite validation error:", err);
+            // If it's already one of our validation messages, use it, otherwise parse revert/general error
+            const knownError = Object.values(VALIDATION_MESSAGES).includes(err.message);
+            const message = knownError ? err.message : `${VALIDATION_MESSAGES.VALIDATION_FAILED}: ${getRevertReason(err) || err.message}`;
+            throw new Error(message);
+        }
+    }, [contract, account, formData, batchTypeContext, hasRole, fetchWithLoading, getRevertReason]);
+
+    // --- Submit Handler ---
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        clearStatus();
+
+        if (!contract || !account) {
+            setStatus({ message: VALIDATION_MESSAGES.WALLET_CONNECT, type: STATUS_TYPE.ERROR }); return;
+        }
+        if (!canDestroy) {
+            setStatus({ message: VALIDATION_MESSAGES.INSUFFICIENT_ROLE(allowedRoleNames), type: STATUS_TYPE.ERROR }); return;
+        }
+        if (!validateSync()) {
+            setStatus({ message: 'Please fix the errors marked below.', type: STATUS_TYPE.ERROR }); return;
+        }
+
+        setIsLocalLoading(true);
+
+        try {
+            setStatus({ message: VALIDATION_MESSAGES.VALIDATING, type: STATUS_TYPE.LOADING });
+            await validateAsyncPrerequisites(); // Check owner/status etc.
+
+            setStatus({ message: VALIDATION_MESSAGES.SENDING, type: STATUS_TYPE.LOADING });
+            const { batchAddress, reason, latitude, longitude } = formData;
+
+            // Prepare data
+            const reasonBytes32 = ethers.encodeBytes32String(reason.slice(0, REASON_MAX_LENGTH));
+            // Use parseUnits for coordinates - assumes they need scaling like in TransferForm
+            const latScaled = ethers.parseUnits(latitude, COORD_DECIMALS);
+            const lonScaled = ethers.parseUnits(longitude, COORD_DECIMALS);
+
+            const tx = await contract.markBatchDestroyed(batchAddress, reasonBytes32, latScaled, lonScaled);
+            const shortHash = formatHash(tx.hash); // Get short hash for message
+
+            setStatus({ message: VALIDATION_MESSAGES.WAITING(shortHash), type: STATUS_TYPE.LOADING });
+
+            const receipt = await tx.wait(1);
+            const finalShortHash = formatHash(receipt.hash); // Use final hash
+
+            if (receipt.status === 0) {
+                throw new Error(VALIDATION_MESSAGES.TX_REVERTED + ` (Tx: ${finalShortHash})`);
+            }
+
+            const successMsg = VALIDATION_MESSAGES.SUCCESS(finalShortHash);
+            setStatus({ message: successMsg, type: STATUS_TYPE.SUCCESS });
+            if (onSuccess) onSuccess(receipt.hash, batchAddress); // Pass hash and address
+
+            // Reset form
+            setFormData({ batchAddress: '', reason: '', latitude: '', longitude: '' });
+            setValidationErrors({});
+
+        } catch (submitError) {
+            console.error("Mark Destroyed Error:", submitError);
+            const reasonText = getRevertReason(submitError);
+            let userErrorMessage = submitError.message; // Start with the caught message
+
+            // Try to refine known contract reverts
+             if (reasonText) {
+                 if (reasonText.includes("RequiresAdminOrOwner") || reasonText.includes("RequiresAdminOrSupplier") || reasonText.includes("UnauthorizedActor")) {
+                     userErrorMessage = `${VALIDATION_MESSAGES.DESTROY_FAILED_BASE}: Authorization error (requires Admin or specific Owner/Supplier).`;
+                 } else if (reasonText.includes("Batch_AlreadyDestroyed") || reasonText.includes("Med_AlreadyDestroyedOrFinalized")) {
+                     userErrorMessage = `${VALIDATION_MESSAGES.DESTROY_FAILED_BASE}: Batch already destroyed or finalized.`;
                  } else {
-                     return "Unknown batch type, cannot verify status.";
+                     userErrorMessage = `${VALIDATION_MESSAGES.DESTROY_FAILED_BASE}: ${reasonText}`;
                  }
-                 return null; // Admin check passed (batch exists and isn't already destroyed/finalized)
-             } catch (err) {
-                 return `Status Check Error: ${getRevertReason(err)}`;
+             } else if (submitError.message.startsWith(VALIDATION_MESSAGES.VALIDATION_FAILED)) {
+                 userErrorMessage = submitError.message; // Keep the specific validation failure message
+             } else if (submitError.message.startsWith(VALIDATION_MESSAGES.TX_REVERTED)) {
+                userErrorMessage = submitError.message; // Keep the tx reverted message
              }
-        }
 
-        // If not admin, perform checks based on expected owner/status
-        try {
-            const type = await contract.batchType(batchAddress);
-            if (type === ethers.ZeroHash) return "Batch not found."; // v6 check
+            setStatus({ message: userErrorMessage, type: STATUS_TYPE.ERROR });
+            if (onError) onError(userErrorMessage);
 
-            if (type === ROLES.RAW_MATERIAL) {
-                // Check if context allows destroying RM
-                if (batchTypeContext !== 'RAW_MATERIAL' && batchTypeContext !== 'ANY') {
-                     return "Context mismatch: Form configured incorrectly for Raw Material.";
-                 }
-                const details = await contract.getRawMaterialDetails(batchAddress);
-                // Check if current user is the supplier (owner)
-                if (details.supplier.toLowerCase() !== account.toLowerCase()) {
-                    return "Access Denied: You are not the supplier of this Raw Material batch.";
-                }
-                // Check if already destroyed
-                if (Number(details.status) === 3) { // 3 = Destroyed
-                    return "Batch is already marked as destroyed.";
-                }
-            } else if (type === ROLES.MEDICINE) {
-                 // Check if context allows destroying Medicine
-                 if (batchTypeContext !== 'MEDICINE' && batchTypeContext !== 'ANY') {
-                     return "Context mismatch: Form configured incorrectly for Medicine.";
-                 }
-                 const details = await contract.getMedicineDetails(batchAddress);
-                 // Check if current user is the current owner
-                 if (details.currentOwner.toLowerCase() !== account.toLowerCase()) {
-                     return "Access Denied: You are not the current owner of this Medicine batch.";
-                 }
-                 // Check if already finalized or destroyed
-                 // Status enum: 7: ConsumedOrSold, 8: Destroyed
-                 if (Number(details.status) === 7 || Number(details.status) === 8) {
-                     return "Batch is already finalized or destroyed.";
-                 }
-            } else {
-                 return "Cannot determine ownership/status for unknown batch type.";
-            }
-            return null; // Validation passed for non-admin owner
-        } catch (err) {
-            console.error("Ownership/Status Validation Error:", err);
-            return `Validation Error: ${getRevertReason(err)}`;
-        }
-    }, [contract, account, batchAddress, hasRole, batchTypeContext, getRevertReason]); // Dependencies
-
-    // --- Form Submission Handler ---
-    const handleSubmit = useCallback(async (e) => {
-        e.preventDefault(); // Prevent default browser form submission
-        setFormStatus(''); // Clear previous local status
-        if (onError) onError(null); // Clear parent/global error state via callback
-
-        // --- Input Validation ---
-        if (!contract || !account || !canDestroy) {
-            const errorMsg = "Cannot mark destroyed: Wallet/contract issue or insufficient role.";
-            setFormStatus(`Error: ${errorMsg}`); if (onError) onError(errorMsg); return;
-        }
-        if (!ethers.isAddress(batchAddress)) { // v6 check
-            setFormStatus("Error: Please enter a valid Ethereum Batch Address."); return;
-        }
-        if (!reason || reason.length > 31) {
-            setFormStatus("Error: Reason is required and cannot exceed 31 characters."); return;
-        }
-        const latNum = parseFloat(latitude); const lonNum = parseFloat(longitude);
-        if (isNaN(latNum) || isNaN(lonNum)) {
-           setFormStatus("Error: Latitude and Longitude must be valid numbers."); return;
-        }
-
-        setIsLoading(true); // Set loading state
-        setFormStatus('Validating destroy action...');
-
-        // --- Perform Client-Side Validation ---
-        const validationError = await validateDestroyAction();
-        if (validationError) {
-            setFormStatus(`Error: ${validationError}`);
-            setIsLoading(false); // Stop loading
-            if (onError) onError(validationError); // Report error
-            return; // Prevent transaction submission
-        }
-        // --- End Validation ---
-
-        setFormStatus('Submitting transaction...');
-
-        // --- Transaction Processing ---
-        try {
-            // 1. Prepare data for the contract function call
-            // Convert reason string to bytes32 (ethers v6)
-            const reasonBytes32 = ethers.encodeBytes32String(reason.slice(0, 31));
-            // Convert coordinates to BigInt (for int256 in Solidity - ethers v6)
-            const latInt = Math.round(latNum * 1e6);
-            const lonInt = Math.round(lonNum * 1e6);
-            // 2. Call the contract function
-            const tx = await contract.markBatchDestroyed(
-                batchAddress,
-                reasonBytes32,
-                latInt,
-                lonInt
-                // { from: account } // Implicit with signer
-            );
-
-            setFormStatus(`Transaction sent: ${tx.hash}. Waiting for confirmation...`);
-
-            // 3. Wait for the transaction to be mined
-            const receipt = await tx.wait();
-
-            // 4. Handle Success
-            setFormStatus(`Batch ${batchAddress.substring(0,6)}... Marked as Destroyed! Tx: ${receipt.hash}`);
-            if (onSuccess) onSuccess(); // Execute success callback
-
-            // 5. Reset form fields
-            setBatchAddress('');
-            setReason('');
-            setLatitude(''); // Clear location too, might be different next time
-            setLongitude('');
-
-        } catch (err) {
-            // 6. Handle Errors
-            console.error("Mark Destroyed Error:", err);
-            const reasonText = getRevertReason(err);
-            // Provide specific feedback based on common contract errors
-            if (reasonText.includes("RequiresAdminOrOwner") || reasonText.includes("RequiresAdminOrSupplier") || reasonText.includes("UnauthorizedActor")) {
-                 setFormStatus("Error: Destroy Failed - You lack the necessary role (Admin or specific Owner/Supplier for this batch).");
-            } else if (reasonText.includes("Batch_AlreadyDestroyed") || reasonText.includes("Med_AlreadyDestroyedOrFinalized")) {
-                 setFormStatus("Error: Destroy Failed - Batch has already been destroyed or finalized.");
-            } else {
-                setFormStatus(`Error: Destroy Failed - ${reasonText}`);
-            }
-            if (onError) onError(formStatus); // Pass final error message via callback
         } finally {
-            // 7. Reset Loading State
-            setIsLoading(false);
+            setIsLocalLoading(false);
         }
-    }, [ // Dependencies for useCallback
-        contract, account, canDestroy, batchAddress, reason, latitude, longitude,
-        validateDestroyAction, setIsLoading, getRevertReason, onSuccess, onError
-    ]);
+    };
 
-
-    // --- JSX Rendering ---
+    // --- Render ---
     return (
-        <form onSubmit={handleSubmit} className="form-container">
-            <h3>Mark Batch as Destroyed</h3>
+        <form onSubmit={handleSubmit} className={styles.formContainer} noValidate>
+            <h3 className={styles.title}>Mark Batch as Destroyed</h3>
 
-            {/* Display permission warning if user lacks the required role */}
             {!canDestroy && (
-                <p className="error-message">
-                    You do not have the required role ({allowedRoleNames}) to perform this action.
-                </p>
+                <div className={`${styles.alert} ${styles['alert--error']}`}>
+                     <svg className={styles.alertIcon} viewBox="0 0 24 24" fill="currentColor">
+                         <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.72 6.97a.75.75 0 10-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 101.06 1.06L12 13.06l1.72 1.72a.75.75 0 101.06-1.06L13.06 12l1.72-1.72a.75.75 0 10-1.06-1.06L12 10.94l-1.72-1.72z" clipRule="evenodd" />
+                     </svg>
+                     <div className={styles.alertContent}>
+                        <h4>Authorization Required</h4>
+                        <p>Requires {allowedRoleNames} role(s).</p>
+                    </div>
+                </div>
             )}
 
-            {/* Batch Address Input */}
-            <div className="form-group">
-                <label htmlFor={`dest-batch-${batchTypeContext}`}>Batch Address:</label>
-                <input
-                    id={`dest-batch-${batchTypeContext}`}
-                    type="text"
-                    value={batchAddress}
-                    onChange={(e) => setBatchAddress(e.target.value)}
-                    required
-                    pattern="^0x[a-fA-F0-9]{40}$"
-                    title="Enter a valid Ethereum address (0x...)"
-                    disabled={!canDestroy || isLoading} // Disable if no permission or loading
-                    placeholder="0x... (Address of batch to destroy)"
-                />
+            <div className={styles.formGrid}>
+                {/* Batch Address */}
+                <div className={styles.inputGroup}>
+                    <label htmlFor="batchAddress" className={styles.label}>
+                        Batch Address <span className={styles.required}>*</span>
+                    </label>
+                    <input
+                        id="batchAddress" name="batchAddress" type="text" required
+                        value={formData.batchAddress} onChange={handleInputChange}
+                        pattern={ADDRESS_REGEX_SOURCE} placeholder="0x... (Batch contract address)"
+                        className={`${styles.input} ${validationErrors.batchAddress ? styles['input--error'] : ''}`}
+                        disabled={!canDestroy || isLoading} aria-invalid={!!validationErrors.batchAddress}
+                        aria-describedby={validationErrors.batchAddress ? "batchAddress-error" : undefined}
+                    />
+                    {validationErrors.batchAddress && <p id="batchAddress-error" className={styles.inputError}>{validationErrors.batchAddress}</p>}
+                </div>
+
+                {/* Reason */}
+                <div className={styles.inputGroup}>
+                    <label htmlFor="reason" className={styles.label}>
+                        Destruction Reason <span className={styles.required}>*</span>
+                    </label>
+                    <input
+                        id="reason" name="reason" type="text" required
+                        value={formData.reason} onChange={handleInputChange}
+                        maxLength={REASON_MAX_LENGTH} placeholder={`Max ${REASON_MAX_LENGTH} chars`}
+                        className={`${styles.input} ${validationErrors.reason ? styles['input--error'] : ''}`}
+                        disabled={!canDestroy || isLoading} aria-invalid={!!validationErrors.reason}
+                        aria-describedby={validationErrors.reason ? "reason-error" : undefined}
+                    />
+                    {validationErrors.reason && <p id="reason-error" className={styles.inputError}>{validationErrors.reason}</p>}
+                </div>
+
+                {/* Geo Coordinates */}
+                <div className={styles.geoGroup}>
+                    <div className={styles.inputGroup}>
+                        <label htmlFor="latitude" className={styles.label}>
+                            Latitude <span className={styles.required}>*</span>
+                        </label>
+                        <input
+                            id="latitude" name="latitude" type="number" step="any" required
+                            value={formData.latitude} onChange={handleInputChange}
+                            placeholder="e.g., 40.7128"
+                            className={`${styles.input} ${validationErrors.latitude ? styles['input--error'] : ''}`}
+                            disabled={!canDestroy || isLoading} aria-invalid={!!validationErrors.latitude}
+                            aria-describedby={validationErrors.latitude ? "latitude-error" : undefined}
+                        />
+                        {validationErrors.latitude && <p id="latitude-error" className={styles.inputError}>{validationErrors.latitude}</p>}
+                    </div>
+                    <div className={styles.inputGroup}>
+                        <label htmlFor="longitude" className={styles.label}>
+                            Longitude <span className={styles.required}>*</span>
+                        </label>
+                        <input
+                            id="longitude" name="longitude" type="number" step="any" required
+                            value={formData.longitude} onChange={handleInputChange}
+                            placeholder="e.g., -74.0060"
+                            className={`${styles.input} ${validationErrors.longitude ? styles['input--error'] : ''}`}
+                            disabled={!canDestroy || isLoading} aria-invalid={!!validationErrors.longitude}
+                            aria-describedby={validationErrors.longitude ? "longitude-error" : undefined}
+                        />
+                        {validationErrors.longitude && <p id="longitude-error" className={styles.inputError}>{validationErrors.longitude}</p>}
+                    </div>
+                </div>
+            </div> {/* End formGrid */}
+
+            {/* Actions */}
+            <div className={styles.actions}>
+                <button
+                    type="submit"
+                    disabled={isLoading || !contract || !account || !canDestroy}
+                    className={styles.submitButton}
+                >
+                    {isLoading ? (
+                        <span className={styles.loading}>
+                            <span className={styles.spinner}></span>
+                            Processing...
+                        </span>
+                    ) : (
+                        'Mark Destroyed'
+                    )}
+                </button>
             </div>
 
-            {/* Reason Input */}
-            <div className="form-group">
-                <label htmlFor={`dest-reason-${batchTypeContext}`}>Reason for Destruction (max 31 chars):</label>
-                <input
-                    id={`dest-reason-${batchTypeContext}`}
-                    type="text"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    maxLength="31"
-                    required
-                    disabled={!canDestroy || isLoading}
-                    placeholder="e.g., Expired, Damaged, Contaminated"
-                />
-            </div>
-
-            {/* Latitude and Longitude Inputs */}
-             <div className="form-group" style={{display: 'flex', gap: '15px'}}>
-                 <div style={{flex: 1}}>
-                     <label htmlFor={`dest-lat-${batchTypeContext}`}>Current Latitude:</label>
-                     <input
-                        id={`dest-lat-${batchTypeContext}`}
-                        type="number"
-                        step="any" // Allows decimal values
-                        value={latitude}
-                        onChange={(e) => setLatitude(e.target.value)}
-                        required
-                        disabled={!canDestroy || isLoading}
-                        placeholder="e.g., 40.7128"
-                     />
-                 </div>
-                 <div style={{flex: 1}}>
-                     <label htmlFor={`dest-lon-${batchTypeContext}`}>Current Longitude:</label>
-                     <input
-                        id={`dest-lon-${batchTypeContext}`}
-                        type="number"
-                        step="any" // Allows decimal values
-                        value={longitude}
-                        onChange={(e) => setLongitude(e.target.value)}
-                        required
-                        disabled={!canDestroy || isLoading}
-                        placeholder="e.g., -74.0060"
-                     />
-                 </div>
-            </div>
-
-             {/* Submit Button - Use danger class */}
-            <button
-                type="submit"
-                disabled={isLoading || !contract || !account || !canDestroy} // Also disable if no permission
-                className="danger"
-            >
-                {isLoading ? 'Processing...' : 'Mark Destroyed'}
-            </button>
-
-            {/* Display Form Status/Error Message */}
-            {formStatus && (
-                 <p className={formStatus.startsWith("Error:") ? "error-message" : "info-message"} style={{marginTop: '15px'}}>
-                     {formStatus}
-                 </p>
+            {/* Status Messages */}
+            {status.message && (
+                 <div className={`${styles.alert} ${styles[`alert--${status.type}`]}`}>
+                     {/* Choose appropriate icon based on type */}
+                     <svg className={styles.alertIcon} viewBox="0 0 24 24" fill="currentColor">
+                         {status.type === 'error' && <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.72 6.97a.75.75 0 10-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 101.06 1.06L12 13.06l1.72 1.72a.75.75 0 101.06-1.06L13.06 12l1.72-1.72a.75.75 0 10-1.06-1.06L12 10.94l-1.72-1.72z" clipRule="evenodd" />}
+                         {status.type === 'success' && <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm4.28 6.22a.75.75 0 00-1.06-1.06L11 11.94l-1.72-1.72a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.06 0l4.25-4.25z" clipRule="evenodd" />}
+                         {(status.type === 'info' || status.type === 'loading') && <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 9a.75.75 0 00-1.5 0v5.25a.75.75 0 001.5 0V9zm-1.5 6.75a.75.75 0 100 1.5.75.75 0 000-1.5z" clipRule="evenodd" />}
+                     </svg>
+                     <div className={styles.alertContent}>
+                        <p>{status.message}</p>
+                    </div>
+                </div>
              )}
         </form>
     );
 }
+
+// --- PropTypes ---
+MarkDestroyedForm.propTypes = {
+    allowedDestroyerRoles: PropTypes.arrayOf(PropTypes.string).isRequired,
+    batchTypeContext: PropTypes.oneOf(['RAW_MATERIAL', 'MEDICINE', 'ANY']).isRequired,
+    onSuccess: PropTypes.func,
+    onError: PropTypes.func,
+};
+
+MarkDestroyedForm.defaultProps = {
+    onSuccess: () => {},
+    onError: () => {},
+};
 
 export default MarkDestroyedForm;

@@ -2,8 +2,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useWeb3 } from '../contexts/Web3Context'; // Import hook
 import RoleManagementForms from './RoleManagementForms';
-import BatchDetails from './BatchDetails';
-import MarkDestroyedForm from './MarkDestroyedForm'; // Import MarkDestroyedForm
 import { ethers } from 'ethers'; // Use ethers v6
 import { ROLES } from '../constants/roles';
 
@@ -155,44 +153,9 @@ function AdminDashboard() {
             <h2>Admin Dashboard</h2>
             <p>Manage system roles & ownership, view any batch, and destroy batches if necessary.</p>
 
-             {/* Location Input - Only show when needed for the Destroy view */}
-             {view === 'destroy' && (
-                 <div className="form-group" style={{display: 'flex', gap: '15px', alignItems: 'flex-end', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #eee'}}>
-                     <div style={{flex: 1}}>
-                         <label htmlFor="admin-destroy-lat">Current Latitude (for Destroy):</label>
-                         <input
-                            id="admin-destroy-lat"
-                            type="number"
-                            step="any"
-                            value={destroyLatitude}
-                            onChange={(e) => setDestroyLatitude(e.target.value)}
-                            required={view === 'destroy'} // Only required when destroying
-                            placeholder="Enter Latitude"
-                         />
-                     </div>
-                     <div style={{flex: 1}}>
-                         <label htmlFor="admin-destroy-lon">Current Longitude (for Destroy):</label>
-                         <input
-                            id="admin-destroy-lon"
-                            type="number"
-                            step="any"
-                            value={destroyLongitude}
-                            onChange={(e) => setDestroyLongitude(e.target.value)}
-                            required={view === 'destroy'} // Only required when destroying
-                            placeholder="Enter Longitude"
-                         />
-                     </div>
-                     <button onClick={getLocationForDestroy} className="secondary" type="button" disabled={isLoading}>
-                        {isLoading ? 'Getting...' : 'Get Location'}
-                     </button>
-                 </div>
-             )}
-
             {/* Navigation between Admin actions */}
             <nav className="dashboard-nav">
                 <button onClick={() => setView('roles')} disabled={view === 'roles'}>Role Management</button>
-                <button onClick={() => setView('viewBatch')} disabled={view === 'viewBatch'}>View Batch Info</button>
-                <button onClick={() => setView('destroy')} disabled={view === 'destroy'}>Mark Batch Destroyed</button>
             </nav>
 
             {/* Display Status/Error Messages */}
@@ -209,59 +172,6 @@ function AdminDashboard() {
                         <RoleManagementForms />
                     </div>
                 )}
-
-                {/* View: View Batch Info */}
-                {view === 'viewBatch' && (
-                     <div className="dashboard-section">
-                        <h3>View Any Batch Details & History</h3>
-                         <div style={{display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px'}}>
-                            <input
-                                type="text"
-                                placeholder="Enter Batch Contract Address (RM or Med)"
-                                value={viewBatchAddr} // Use state for input
-                                onChange={(e) => setViewBatchAddr(e.target.value)}
-                                style={{ flexGrow: 1, marginBottom: 0 }}
-                            />
-                            <button
-                                onClick={fetchBatchData} // Call fetch function
-                                disabled={isLoading || !ethers.isAddress(viewBatchAddr)} // v6 check
-                            >
-                                {isLoading && viewBatchAddr ? 'Fetching...' : 'Fetch Info'}
-                            </button>
-                        </div>
-                        {/* Display loading indicator only when fetching *this* batch */}
-                        {isLoading && viewBatchAddr && <p className="loading-indicator">Loading batch data...</p>}
-                        {/* Display batch details if fetched */}
-                        {batchDetails && !isLoading && (
-                            <BatchDetails details={batchDetails} history={batchHistory} contract={contract} />
-                        )}
-                         {!batchDetails && !isLoading && viewBatchAddr && !web3Error && !statusMessage.startsWith("Fetching") && (
-                             <p className="info-message">Enter a batch address and click "Fetch Info".</p>
-                         )}
-                    </div>
-                )}
-
-                {/* View: Mark Batch Destroyed */}
-                 {view === 'destroy' && (
-                     <div className="dashboard-section">
-                        {/* Pass the fetched location coords to the form if needed */}
-                        <MarkDestroyedForm
-                            allowedDestroyerRoles={[ROLES.ADMIN_ROLE]} // Only Admin role required here
-                            batchTypeContext="ANY" // Admin can destroy any type
-                            // Pass location explicitly if the form needs it as props
-                            // latitude={destroyLatitude}
-                            // longitude={destroyLongitude}
-                            onSuccess={() => {
-                                clearStatus(); // Clear any previous message
-                                setStatusMessage("Batch successfully marked as destroyed."); // Set success message
-                                // Optionally clear the form fields inside MarkDestroyedForm on success
-                            }}
-                            onError={(msg) => setError(msg)} // Set global error state
-                        />
-                        {/* Remind user about location if needed by the form */}
-                         {(!destroyLatitude || !destroyLongitude) && <p style={{fontSize: '0.8em', color: 'orange', marginTop: '10px'}}>Marking destroyed requires current location. Use 'Get Location' or enter manually.</p>}
-                     </div>
-                 )}
             </div>
         </div>
     );

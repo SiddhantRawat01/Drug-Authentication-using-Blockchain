@@ -1,353 +1,477 @@
-// client/src/components/CreateMedicineForm.js
-import React, { useState, useCallback } from 'react';
-import { useWeb3 } from '../contexts/Web3Context'; // Import hook
-import { ethers } from 'ethers'; // Use ethers v6
-import { ROLES } from '../constants/roles'; // Import role hashes if needed for validation
+// client/src/components/CreateMedicineForm.jsx
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import PropTypes from 'prop-types';
+import { useWeb3 } from '../contexts/Web3Context';
+import { ethers } from 'ethers';
+import styles from '../styles/CreateMedicineForm.module.css'; // Import CSS Module
 
-/**
- * Form component for creating new Medicine batches.
- * Used within the ManufacturerDashboard.
- *
- * @param {object} props - Component props
- * @param {function} props.onSuccess - Callback function executed on successful batch creation.
- * @param {function} props.onError - Callback function executed on error, passing the error message.
- */
-function CreateMedicineForm({ onSuccess, onError }) {
-    // Get necessary data and functions from Web3 context
-    // Call hook ONCE at the top level
+// --- Import Helpers and Constants ---
+// Assume these are correctly exported from BatchDetails or a shared location
+import {
+    formatAddress,
+    formatHash,
+    RawMaterialStatus // Only needed if used in messages, but RM status codes are used below
+} from './BatchDetails';
+
+// --- Constants ---
+const COORD_DECIMALS = 6;
+const MAX_DESC_LENGTH = 31;
+const ADDRESS_REGEX_SOURCE = '^0x[a-fA-F0-9]{40}$';
+
+// Type Hashes (Ideally from shared constants)
+const RAW_MATERIAL_TYPE_HASH = ethers.id("RAW_MATERIAL");
+const MEDICINE_TYPE_HASH = ethers.id("MEDICINE");
+
+// Status Codes (Match Solidity Enums)
+const RM_STATUS_RECEIVED = 2;
+
+const STATUS_TYPE = { INFO: 'info', LOADING: 'loading', SUCCESS: 'success', ERROR: 'error' };
+
+// --- Validation Messages ---
+const VALIDATION_MESSAGES = {
+    INVALID_ADDRESS: (fieldName) => `${fieldName}: Invalid Ethereum address format (0x...).`,
+    REQUIRED: (fieldName) => `${fieldName} is required.`,
+    POSITIVE_QTY: 'Quantity must be a positive whole number.',
+    DESC_LENGTH: `Description cannot exceed ${MAX_DESC_LENGTH} characters.`,
+    FUTURE_DATE: 'Expiry date must be in the future.',
+    INVALID_DATE: 'Invalid date/time selected.',
+    NO_RM_IDS: 'At least one Raw Material batch address is required.',
+    RM_ID_FORMAT: (ids) => `Invalid format in Raw Material IDs: ${ids}. Use comma-separated 0x addresses.`,
+    WALLET_CONNECT: 'Please connect your wallet.',
+    RM_VALIDATING: 'Validating Raw Material batches...',
+    RM_VALIDATION_FAILED: 'Raw Material validation failed', // Base message
+    RM_VALIDATION_SUCCESS: 'Raw Material batches are valid.',
+    RM_NOT_FOUND: (addr) => `RM Batch ${formatAddress(addr)} not found.`,
+    RM_WRONG_TYPE: (addr) => `Address ${formatAddress(addr)} is not a Raw Material batch.`,
+    RM_WRONG_STATUS: (addr, statusName) => `RM Batch ${formatAddress(addr)} is not 'Received' (Status: ${statusName}).`,
+    RM_WRONG_MANUFACTURER: (addr) => `You are not the intended manufacturer for RM ${formatAddress(addr)}.`,
+    RM_FETCH_ERROR: (addr, reason) => `Failed to validate ${formatAddress(addr)}: ${reason}`,
+    SUBMITTING: 'Submitting transaction...',
+    WAITING: (txHash) => `Waiting for confirmation... (Tx: ${formatHash(txHash)})`,
+    TX_REVERTED_ON_CHAIN: 'Transaction failed on-chain.',
+    EVENT_PARSE_ERROR: "Batch created, but couldn't extract new address from logs.",
+    CREATION_FAILED: 'Medicine Batch Creation Failed', // General error
+    SUCCESS_BASE: 'Medicine Batch Created Successfully!',
+    SUCCESS_WITH_ADDR: (addr, txHash) => `Medicine Batch ${formatAddress(addr)} Created! (Tx: ${formatHash(txHash)})`,
+    COORD_REQUIRED: (fieldName) => `${fieldName} is required.`,
+    COORD_INVALID: (fieldName) => `${fieldName} must be a valid number.`,
+    FIX_ERRORS_BELOW: 'Please fix the errors marked below.',
+};
+
+// --- Helper Function (Consider moving to utils) ---
+const isValidCoordinate = (coordString) => {
+    if (typeof coordString !== 'string') return false;
+    const trimmed = coordString.trim();
+    if (trimmed === '') return false;
+    const num = Number(trimmed);
+    return !isNaN(num) && isFinite(num);
+};
+
+// --- Component Definition ---
+function CreateMedicineForm({ latitude: propLatitude, longitude: propLongitude, onSuccess, onError }) {
+    // --- Hooks ---
     const {
         contract,
-        account, // The connected account (manufacturer)
-        isLoading,
-        setIsLoading,
+        account,
+        isLoading: isGlobalLoading,
+        setIsLoading: setGlobalLoading,
         getRevertReason,
-        setError // Use setError from context for broader display if needed
+        fetchWithLoading, // Use if available
     } = useWeb3();
 
-    // --- Form State Variables ---
-    const [description, setDescription] = useState('');
-    const [quantity, setQuantity] = useState('');
-    const [rawMaterialIds, setRawMaterialIds] = useState(''); // Comma-separated addresses string
-    const [expiryDate, setExpiryDate] = useState(''); // Use datetime-local input format 'YYYY-MM-DDTHH:mm'
-    const [latitude, setLatitude] = useState('');
-    const [longitude, setLongitude] = useState('');
-    const [formStatus, setFormStatus] = useState(''); // Local status/error message for this form
-    const [validationErrors, setValidationErrors] = useState([]); // Store specific validation errors for RM batches
+    // --- State ---
+    const [formData, setFormData] = useState({
+        description: '',
+        quantity: '',
+        rawMaterialIdsInput: '', // Raw text input
+        expiryDate: '', // datetime-local string
+        latitude: '',
+        longitude: '',
+    });
+    const [validationErrors, setValidationErrors] = useState({}); // Field-specific sync errors
+    const [rmValidationErrors, setRmValidationErrors] = useState([]); // Specific errors from RM async validation
+    const [status, setStatus] = useState({ message: '', type: STATUS_TYPE.INFO });
+    const [isLocalLoading, setIsLocalLoading] = useState(false); // For async validation
 
-    // --- Client-Side Raw Material Validation (Optional but Recommended) ---
-    const validateRawMaterials = useCallback(async (rmAddresses) => {
-        if (!contract || !account) return ["Wallet not connected."]; // Basic check
+    const isLoading = isGlobalLoading || isLocalLoading;
 
-        const errors = [];
-        setValidationErrors([]); // Clear previous errors
-        setFormStatus("Validating Raw Material batches..."); // Indicate validation step
+    // --- Effects ---
+    // Initialize internal coordinate state from props if provided and state is empty
+    useEffect(() => {
+        setFormData(prev => ({
+            ...prev,
+            latitude: (propLatitude !== undefined && propLatitude !== null && prev.latitude === '') ? String(propLatitude) : prev.latitude,
+            longitude: (propLongitude !== undefined && propLongitude !== null && prev.longitude === '') ? String(propLongitude) : prev.longitude,
+        }));
+    }, [propLatitude, propLongitude]); // Depend only on props
 
-        // Fetch details for each RM batch concurrently
+    // Clear feedback on input change
+    useEffect(() => {
+        setValidationErrors({});
+        setRmValidationErrors([]);
+        // Optionally clear general status message, or keep it
+        // setStatus({ message: '', type: STATUS_TYPE.INFO });
+    }, [formData]);
+
+    // --- Callbacks ---
+    const handleInputChange = useCallback((e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }, []);
+
+    const clearStatus = useCallback(() => {
+        setStatus({ message: '', type: STATUS_TYPE.INFO });
+        setValidationErrors({});
+        setRmValidationErrors([]);
+        if (onError) onError(null);
+    }, [onError]);
+
+    // --- Synchronous Input Validation ---
+    const validateSync = useCallback(() => {
+        const errors = {};
+        const { description, quantity, rawMaterialIdsInput, expiryDate, latitude, longitude } = formData;
+
+        // Description
+        if (!description) errors.description = VALIDATION_MESSAGES.REQUIRED('Description');
+        else if (new TextEncoder().encode(description).length > MAX_DESC_LENGTH) errors.description = VALIDATION_MESSAGES.DESC_LENGTH;
+
+        // Quantity
+        const qtyNum = parseInt(quantity, 10);
+        if (!quantity || isNaN(qtyNum) || qtyNum <= 0 || !Number.isInteger(qtyNum)) errors.quantity = VALIDATION_MESSAGES.POSITIVE_QTY;
+
+        // Raw Material IDs Input (Format Check Only)
+        const rmAddresses = rawMaterialIdsInput.split(',').map(a => a.trim()).filter(Boolean);
+        if (rmAddresses.length === 0) errors.rawMaterialIdsInput = VALIDATION_MESSAGES.NO_RM_IDS;
+        else {
+            const invalidAddrs = rmAddresses.filter(addr => !ethers.isAddress(addr));
+            if (invalidAddrs.length > 0) {
+                errors.rawMaterialIdsInput = VALIDATION_MESSAGES.RM_ID_FORMAT(invalidAddrs.slice(0, 2).join(', ') + (invalidAddrs.length > 2 ? '...' : ''));
+            }
+        }
+
+        // Expiry Date
+        if (!expiryDate) errors.expiryDate = VALIDATION_MESSAGES.REQUIRED('Expiry Date');
+        else {
+            try {
+                const expiryTimestamp = Math.floor(new Date(expiryDate).getTime() / 1000);
+                if (isNaN(expiryTimestamp)) {
+                    errors.expiryDate = VALIDATION_MESSAGES.INVALID_DATE;
+                } else if (expiryTimestamp <= Math.floor(Date.now() / 1000)) {
+                    errors.expiryDate = VALIDATION_MESSAGES.FUTURE_DATE;
+                }
+            } catch { errors.expiryDate = VALIDATION_MESSAGES.INVALID_DATE; }
+        }
+
+        // Coordinates
+        if (!latitude) errors.latitude = VALIDATION_MESSAGES.COORD_REQUIRED('Latitude');
+        else if (!isValidCoordinate(latitude)) errors.latitude = VALIDATION_MESSAGES.COORD_INVALID('Latitude');
+        if (!longitude) errors.longitude = VALIDATION_MESSAGES.COORD_REQUIRED('Longitude');
+        else if (!isValidCoordinate(longitude)) errors.longitude = VALIDATION_MESSAGES.COORD_INVALID('Longitude');
+
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    }, [formData]);
+
+    // --- Asynchronous Raw Material Validation ---
+    const validateRawMaterialsAsync = useCallback(async (rmAddresses) => {
+        if (!contract || !account ) throw new Error(VALIDATION_MESSAGES.WALLET_CONNECT);
+        setRmValidationErrors([]); // Clear previous errors
+
+        const executeRead = fetchWithLoading ?? ((func) => func());
+        let allValid = true;
+        const detailedErrors = [];
+
         const validationPromises = rmAddresses.map(async (rmAddr) => {
             try {
-                // 1. Check if it's actually a Raw Material batch type
-                const type = await contract.batchType(rmAddr);
-                if (type !== ROLES.RAW_MATERIAL) { // Compare with the known hash
-                    return `Address ${rmAddr.substring(0, 6)}... is not registered as a Raw Material batch.`;
+                const type = await executeRead(() => contract.batchType(rmAddr));
+                if (type === ethers.ZeroHash) throw new Error(VALIDATION_MESSAGES.RM_NOT_FOUND(rmAddr));
+                if (type !== RAW_MATERIAL_TYPE_HASH) throw new Error(VALIDATION_MESSAGES.RM_WRONG_TYPE(rmAddr));
+
+                const details = await executeRead(() => contract.getRawMaterialDetails(rmAddr));
+                const statusValue = Number(details[5]); // Status index
+                const intendedManufacturer = details[3]; // Intended Manufacturer index
+
+                if (statusValue !== RM_STATUS_RECEIVED) {
+                     // Look up status name for better error message
+                     const statusName = RawMaterialStatus[statusValue] ?? `Unknown (${statusValue})`;
+                     throw new Error(VALIDATION_MESSAGES.RM_WRONG_STATUS(rmAddr, statusName));
                 }
-
-                // 2. Get details
-                const rmDetails = await contract.getRawMaterialDetails(rmAddr);
-
-                // 3. Check status (must be Received)
-                // Status enum: 0: Created, 1: InTransit, 2: Received, 3: Destroyed
-                if (Number(rmDetails.status) !== 2) {
-                    return `Raw Material ${rmAddr.substring(0, 6)}... is not in 'Received' state (Current: ${Number(rmDetails.status)}).`;
+                if (intendedManufacturer.toLowerCase() !== account.toLowerCase()) {
+                    throw new Error(VALIDATION_MESSAGES.RM_WRONG_MANUFACTURER(rmAddr));
                 }
-
-                // 4. Check intended manufacturer
-                if (rmDetails.intendedManufacturer.toLowerCase() !== account.toLowerCase()) {
-                    return `You (${account.substring(0, 6)}...) are not the intended manufacturer for Raw Material ${rmAddr.substring(0, 6)}... (Intended: ${rmDetails.intendedManufacturer.substring(0,6)}...).`;
-                }
-
-                return null; // No error for this batch
+                return true; // Indicate success for this address
             } catch (err) {
-                console.error(`Validation failed for RM ${rmAddr}:`, err);
-                return `Failed to validate Raw Material ${rmAddr.substring(0, 6)}... (${getRevertReason(err)}). Is it a valid batch address?`;
+                allValid = false; // Mark overall validation as failed
+                const reason = getRevertReason(err) || err.message;
+                 // Try to use specific validation message if it matches, otherwise format a generic fetch error
+                 const knownError = Object.values(VALIDATION_MESSAGES).some(msgTmpl => typeof msgTmpl === 'function' ? msgTmpl(rmAddr).startsWith(reason.split(':')[0]) : msgTmpl === reason);
+                 detailedErrors.push(knownError ? reason : VALIDATION_MESSAGES.RM_FETCH_ERROR(rmAddr, reason));
+                 return false; // Indicate failure for this address
             }
         });
 
-        const results = await Promise.all(validationPromises);
-        const foundErrors = results.filter(result => result !== null); // Filter out null results (no errors)
+        await Promise.all(validationPromises); // Wait for all checks to complete
 
-        setValidationErrors(foundErrors); // Update state with any errors found
-        setFormStatus(foundErrors.length > 0 ? "Raw Material validation failed." : "Raw Material validation successful.");
+        setRmValidationErrors(detailedErrors); // Set the specific errors found
 
-        return foundErrors; // Return array of error strings
+        if (!allValid) {
+            throw new Error(VALIDATION_MESSAGES.RM_VALIDATION_FAILED); // Throw general failure error
+        }
 
-    }, [contract, account, getRevertReason]); // Dependencies for useCallback
+        return true; // All RMs validated successfully
+    }, [contract, account, fetchWithLoading, getRevertReason]); // Dependencies
 
+    // --- Submit Handler ---
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        clearStatus();
 
-    // --- Form Submission Handler ---
-    const handleSubmit = useCallback(async (e) => {
-        e.preventDefault(); // Prevent default browser form submission
-        setFormStatus(''); setValidationErrors([]); // Clear previous local status and validation errors
-        if (onError) onError(null); // Clear parent/global error state via callback
-
-        // --- Input Validation ---
         if (!contract || !account) {
-            const errorMsg = "Wallet not connected or contract not loaded.";
-            setFormStatus(`Error: ${errorMsg}`); if (onError) onError(errorMsg); return;
+            setStatus({ message: VALIDATION_MESSAGES.WALLET_CONNECT, type: STATUS_TYPE.ERROR }); return;
         }
-        if (!description || description.length > 31) {
-             setFormStatus("Error: Description is required and cannot exceed 31 characters."); return;
+        if (!validateSync()) {
+            setStatus({ message: VALIDATION_MESSAGES.FIX_ERRORS_BELOW, type: STATUS_TYPE.ERROR }); return;
         }
-        const qtyNum = parseInt(quantity);
-        if (isNaN(qtyNum) || qtyNum <= 0) {
-             setFormStatus("Error: Quantity must be a positive whole number."); return;
+
+        const uniqueRmAddresses = [...new Set(formData.rawMaterialIdsInput.split(',').map(a => a.trim()).filter(ethers.isAddress))];
+        // Re-check if any valid addresses remain after filtering
+        if (uniqueRmAddresses.length === 0) {
+             setValidationErrors(prev => ({...prev, rawMaterialIdsInput: VALIDATION_MESSAGES.NO_RM_IDS }));
+             setStatus({ message: VALIDATION_MESSAGES.FIX_ERRORS_BELOW, type: STATUS_TYPE.ERROR });
+             return;
         }
-        let expiryTimestamp = 0;
+
+        setIsLocalLoading(true); // Start async validation loading
+
+        // --- Async RM Validation ---
         try {
-            // Ensure the input is treated as local time before conversion
-            const localDate = new Date(expiryDate);
-            expiryTimestamp = Math.floor(localDate.getTime() / 1000); // Convert milliseconds to seconds
-            if (isNaN(expiryTimestamp) || expiryTimestamp <= Math.floor(Date.now() / 1000)) {
-                throw new Error("Invalid or past date selected.");
-            }
-        } catch {
-            setFormStatus("Error: Please select a valid future expiry date and time using the date picker."); return;
-        }
-        const latNum = parseFloat(latitude); const lonNum = parseFloat(longitude);
-        if (isNaN(latNum) || isNaN(lonNum)) {
-           setFormStatus("Error: Latitude and Longitude must be valid numbers."); return;
+            setStatus({ message: VALIDATION_MESSAGES.RM_VALIDATING, type: STATUS_TYPE.LOADING });
+            await validateRawMaterialsAsync(uniqueRmAddresses);
+            setStatus({ message: VALIDATION_MESSAGES.RM_VALIDATION_SUCCESS, type: STATUS_TYPE.SUCCESS }); // Indicate RM success briefly
+        } catch (rmValError) {
+            // rmValError.message already contains the base failure message
+            setStatus({ message: rmValError.message, type: STATUS_TYPE.ERROR });
+            if (onError) onError(rmValError.message); // Pass RM failure to parent
+            setIsLocalLoading(false);
+            return; // Stop submission
         }
 
-        // Validate and parse Raw Material addresses
-        const rmAddresses = rawMaterialIds.split(',')
-                                         .map(addr => addr.trim()) // Remove whitespace
-                                         .filter(addr => addr); // Remove empty strings
-        const invalidAddresses = rmAddresses.filter(addr => !ethers.isAddress(addr)); // v6 check
-        if (rmAddresses.length === 0) {
-            setFormStatus("Error: Please enter at least one Raw Material batch address."); return;
-        }
-        if (invalidAddresses.length > 0) {
-            setFormStatus(`Error: Invalid Ethereum address format found in Raw Material IDs: ${invalidAddresses.join(', ')}`); return;
-        }
-        const uniqueRmAddresses = [...new Set(rmAddresses)]; // Use unique addresses
+        // --- Prepare and Send Transaction ---
+        setGlobalLoading(true); // Use global loading now for tx submission
+        setIsLocalLoading(false); // Turn off local loading
+        setStatus({ message: VALIDATION_MESSAGES.SUBMITTING, type: STATUS_TYPE.LOADING });
 
-
-        setIsLoading(true); // Set loading state
-
-        // --- Optional: Perform Client-Side RM Validation ---
-        const rmValidationErrors = await validateRawMaterials(uniqueRmAddresses);
-        if (rmValidationErrors.length > 0) {
-            setFormStatus("Error: Raw Material validation failed. See details below.");
-            // Errors are already set in validationErrors state by the function
-            setIsLoading(false); // Stop loading
-            return; // Prevent transaction submission
-        }
-        // --- End Optional Validation ---
-
-        setFormStatus('Submitting transaction...');
-
-        // --- Transaction Processing ---
         try {
-            // 1. Prepare data for the contract function call
-            const descriptionBytes32 = ethers.encodeBytes32String(description.slice(0, 31)); // v6
-            const latInt = Math.round(latNum * 1e6);
-            const lonInt = Math.round(lonNum * 1e6);
-            const quantityArg = qtyNum.toString();
-            const expiryTimestampArg = expiryTimestamp.toString(); // Pass timestamp as string/number
+            const { description, quantity, expiryDate, latitude, longitude } = formData;
+            const descriptionBytes32 = ethers.encodeBytes32String(description.slice(0, MAX_DESC_LENGTH));
+            const quantityString = quantity.toString(); // Ethers v6 prefers string/BigInt for uint
+            const expiryTimestamp = Math.floor(new Date(expiryDate).getTime() / 1000).toString(); // String for uint arg
+            // Use parseUnits for coordinate scaling
+            const latScaled = ethers.parseUnits(latitude, COORD_DECIMALS);
+            const lonScaled = ethers.parseUnits(longitude, COORD_DECIMALS);
 
-            // 2. Call the contract function
             const tx = await contract.createMedicine(
                 descriptionBytes32,
-                quantityArg,
-                uniqueRmAddresses, // Pass the array of unique, validated addresses
-                expiryTimestampArg,
-                latInt,
-                lonInt
-                // { from: account } // Implicit with signer
+                quantityString,
+                uniqueRmAddresses,
+                expiryTimestamp,
+                latScaled, // Pass BigInt directly
+                lonScaled  // Pass BigInt directly
             );
 
-            setFormStatus(`Transaction sent: ${tx.hash}. Waiting for confirmation...`);
+            setStatus({ message: VALIDATION_MESSAGES.WAITING(tx.hash), type: STATUS_TYPE.LOADING });
 
-            // 3. Wait for the transaction to be mined
-            const receipt = await tx.wait();
+            const receipt = await tx.wait(1);
+            const finalShortTxHash = formatHash(receipt.hash);
 
-            // 4. Attempt to extract the new batch address from the BatchCreated event
-            let newBatchAddress = 'N/A';
+            console.log(`using recipt ${receipt.hash}`)
+            console.log(`using recipt with format ${formatHash(receipt.hash)}`)
+            console.log(`using tx ${tx.hash}`)
+            console.log(`using tx with format ${formatHash(tx.hash)}`)
+
+            if (receipt.status === 0) {
+                throw new Error(`${VALIDATION_MESSAGES.TX_REVERTED_ON_CHAIN} (Tx: ${finalShortTxHash})`);
+            }
+
+            // --- Parse Event for New Address ---
+            let newBatchAddress = null;
+            let finalSuccessMessage = VALIDATION_MESSAGES.SUCCESS_BASE + ` (Tx: ${finalShortTxHash})`;
             try {
-                const eventSignature = "BatchCreated(bytes32,address,address,uint256)";
-                const eventTopic = ethers.id(eventSignature); // v6
-                const medicineTypeHash = ROLES.MEDICINE; // Get hash for MEDICINE type
-
-                // Find log where first topic is event hash AND batchType (second topic) is MEDICINE
+                const eventTopic = ethers.id("BatchCreated(bytes32,address,address,uint256)");
                 const batchCreatedLog = receipt.logs?.find(log =>
-                    log.topics[0] === eventTopic && log.topics[1] === medicineTypeHash
+                    log.topics[0] === eventTopic && log.topics[1] === MEDICINE_TYPE_HASH
                 );
-
-                if (batchCreatedLog) {
-                    const decodedEvent = contract.interface.decodeEventLog("BatchCreated", batchCreatedLog.data, batchCreatedLog.topics);
-                    // Arguments: batchType (indexed), batchAddress (indexed), creator (indexed), timestamp (non-indexed)
-                    if (decodedEvent && decodedEvent.batchAddress) { // v6 often uses named args
-                        newBatchAddress = decodedEvent.batchAddress;
-                    } else if (decodedEvent && decodedEvent[1]) { // Fallback index access
-                        newBatchAddress = decodedEvent[1];
-                    }
+                if (batchCreatedLog && batchCreatedLog.topics.length > 2) {
+                    newBatchAddress = ethers.getAddress(ethers.dataSlice(batchCreatedLog.topics[2], 12));
+                    finalSuccessMessage = VALIDATION_MESSAGES.SUCCESS_WITH_ADDR(newBatchAddress, receipt.hash);
+                } else {
+                    console.warn("BatchCreated event for Medicine not found in logs.");
+                     finalSuccessMessage = VALIDATION_MESSAGES.SUCCESS_BASE + `, but ${VALIDATION_MESSAGES.EVENT_PARSE_ERROR} (Tx: ${finalShortTxHash})`;
                 }
             } catch (eventError) {
-                console.error("Error parsing BatchCreated event for Medicine:", eventError);
-                setFormStatus("Medicine batch created, but failed to extract new address from event logs.");
+                console.error("Error parsing BatchCreated event:", eventError);
+                 finalSuccessMessage = VALIDATION_MESSAGES.SUCCESS_BASE + `, but ${VALIDATION_MESSAGES.EVENT_PARSE_ERROR} (Tx: ${finalShortTxHash})`;
             }
 
-            // 5. Handle Success
-            setFormStatus(`Medicine Batch Created Successfully! Tx: ${receipt.hash}. New Batch Address: ${newBatchAddress}`);
-            if (onSuccess) onSuccess(); // Execute success callback
+            setStatus({ message: finalSuccessMessage, type: STATUS_TYPE.SUCCESS });
+            if (onSuccess) onSuccess(receipt.hash, newBatchAddress); // Pass new address if found
 
-            // 6. Reset form fields
-            setDescription(''); setQuantity(''); setRawMaterialIds('');
-            setExpiryDate(''); setLatitude(''); setLongitude('');
+            // Reset form
+            setFormData({ description: '', quantity: '', rawMaterialIdsInput: '', expiryDate: '', latitude: formData.latitude, longitude: formData.longitude }); // Keep coords?
+            setValidationErrors({});
+            setRmValidationErrors([]);
 
-        } catch (err) {
-            // 7. Handle Errors
-            console.error("Create Medicine Error:", err);
-            const reason = getRevertReason(err);
-            // Provide specific feedback based on common contract errors
-            if (reason.includes("RawMaterialNotReceived")) {
-                 setFormStatus("Error: Creation Failed - One or more specified Raw Material batches are not in 'Received' state.");
-            } else if (reason.includes("RawMaterialWrongManufacturer")) {
-                 setFormStatus("Error: Creation Failed - You are not the intended manufacturer for one or more specified Raw Material batches.");
-            } else if (reason.includes("AddressIsNotRawMaterialBatch") || reason.includes("RawMaterialInvalidContract")) {
-                 setFormStatus("Error: Creation Failed - One or more provided addresses is not a valid/registered Raw Material batch contract.");
-            } else if (reason.includes("ExpiryDateMustBeInFuture")) {
-                setFormStatus("Error: Creation Failed - Expiry date must be set in the future.");
-            } else if (reason.includes("RequiresAtLeastOneRawMaterial")) {
-                setFormStatus("Error: Creation Failed - At least one Raw Material batch must be specified.");
-            } else {
-                 setFormStatus(`Error: Creation Failed - ${reason}`);
-            }
-            if (onError) onError(formStatus); // Pass final error message via callback
+        } catch (submitError) {
+            console.error("Create Medicine Transaction Error:", submitError);
+            const reason = getRevertReason(submitError);
+            let userErrorMessage = `${VALIDATION_MESSAGES.CREATION_FAILED}: ${reason || submitError.message}`;
+
+            // --- Optional: Refine specific contract errors ---
+            // if (reason?.includes("RawMaterialNotReceived")) ...
+            // if (reason?.includes("RawMaterialWrongManufacturer")) ...
+
+            setStatus({ message: userErrorMessage, type: STATUS_TYPE.ERROR });
+            if (onError) onError(userErrorMessage);
+
         } finally {
-            // 8. Reset Loading State
-            setIsLoading(false);
+            setGlobalLoading(false); // Turn off global loading
         }
-    }, [
-        contract, account, description, quantity, rawMaterialIds, expiryDate, latitude, longitude,
-        setIsLoading, getRevertReason, onSuccess, onError, validateRawMaterials // Include dependencies
-    ]);
+    };
 
-    // --- JSX Rendering ---
+
+    // --- Render ---
+    const errorIdBase = 'create-med-error-'; // Base for aria-describedby
+
     return (
-        <form onSubmit={handleSubmit} className="form-container">
-            <h3>Create New Medicine Batch</h3>
+        <form onSubmit={handleSubmit} className={styles.formPanel} noValidate>
+            <h3 className={styles.formTitle}>Create New Medicine Batch</h3>
 
-            {/* Description Input */}
-            <div className="form-group">
-                <label htmlFor="med-desc">Description (max 31 chars):</label>
+            {/* Description */}
+            <div className={styles.formGroup}>
+                <label htmlFor="description" className={styles.formLabel}>Description:</label>
                 <input
-                    id="med-desc"
-                    type="text"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    maxLength="31"
-                    required
-                    disabled={isLoading}
+                    id="description" name="description" type="text" required maxLength={MAX_DESC_LENGTH}
+                    value={formData.description} onChange={handleInputChange}
                     placeholder="e.g., Paracetamol 500mg Tablets"
+                    className={`${styles.formInput} ${validationErrors.description ? styles['formInput--error'] : ''}`}
+                    disabled={isLoading} aria-invalid={!!validationErrors.description}
+                    aria-describedby={validationErrors.description ? `${errorIdBase}description` : undefined}
                 />
+                 <small className={styles.formHint}>Max {MAX_DESC_LENGTH} chars.</small>
+                {validationErrors.description && <p id={`${errorIdBase}description`} className={styles.inputError}>{validationErrors.description}</p>}
             </div>
 
-            {/* Quantity Input */}
-            <div className="form-group">
-                <label htmlFor="med-qty">Quantity (e.g., number of boxes/bottles):</label>
+            {/* Quantity */}
+            <div className={styles.formGroup}>
+                <label htmlFor="quantity" className={styles.formLabel}>Quantity:</label>
                 <input
-                    id="med-qty"
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    min="1"
-                    required
-                    disabled={isLoading}
-                    placeholder="e.g., 500"
+                    id="quantity" name="quantity" type="number" required min="1" step="1"
+                    value={formData.quantity} onChange={handleInputChange}
+                    placeholder="e.g., 500 (units, boxes)"
+                    className={`${styles.formInput} ${validationErrors.quantity ? styles['formInput--error'] : ''}`}
+                    disabled={isLoading} aria-invalid={!!validationErrors.quantity}
+                    aria-describedby={validationErrors.quantity ? `${errorIdBase}quantity` : undefined}
                 />
+                {validationErrors.quantity && <p id={`${errorIdBase}quantity`} className={styles.inputError}>{validationErrors.quantity}</p>}
             </div>
 
-            {/* Raw Material IDs Input */}
-             <div className="form-group">
-                <label htmlFor="med-rmids">Raw Material Batch Addresses (comma-separated):</label>
+            {/* Raw Material IDs */}
+            <div className={styles.formGroup}>
+                <label htmlFor="rawMaterialIdsInput" className={styles.formLabel}>Raw Material Batches:</label>
                 <textarea
-                    id="med-rmids"
-                    rows="4" // Slightly larger area
-                    value={rawMaterialIds}
-                    onChange={(e) => setRawMaterialIds(e.target.value)}
-                    placeholder="Enter one or more valid Raw Material batch addresses, separated by commas (e.g., 0x123..., 0x456...)"
-                    required
+                    id="rawMaterialIdsInput" name="rawMaterialIdsInput" rows="4" required
+                    value={formData.rawMaterialIdsInput} onChange={handleInputChange}
+                    placeholder="Enter comma-separated Raw Material batch addresses (0x...)"
+                     className={`${styles.formTextarea} ${(validationErrors.rawMaterialIdsInput || rmValidationErrors.length > 0) ? styles['formTextarea--error'] : ''}`}
                     disabled={isLoading}
+                    aria-invalid={!!validationErrors.rawMaterialIdsInput || rmValidationErrors.length > 0}
+                    aria-describedby={validationErrors.rawMaterialIdsInput ? `${errorIdBase}rawMaterialIdsInput` : rmValidationErrors.length > 0 ? `${errorIdBase}rmValidation` : undefined}
                 />
-                {/* Display RM validation errors */}
-                {validationErrors.length > 0 && (
-                    <ul className="error-message" style={{marginTop: '5px', paddingLeft: '20px', fontSize: '0.9em'}}>
-                        {validationErrors.map((err, index) => <li key={index}>{err}</li>)}
+                 <small className={styles.formHint}>Separate multiple valid addresses with commas.</small>
+                 {validationErrors.rawMaterialIdsInput && <p id={`${errorIdBase}rawMaterialIdsInput`} className={styles.inputError}>{validationErrors.rawMaterialIdsInput}</p>}
+                 {rmValidationErrors.length > 0 && !validationErrors.rawMaterialIdsInput && ( // Show list only if format is OK but async validation failed
+                    <ul id={`${errorIdBase}rmValidation`} className={styles.errorList}>
+                        {rmValidationErrors.map((err, index) => <li key={index}>{err}</li>)}
                     </ul>
-                )}
+                 )}
             </div>
 
-            {/* Expiry Date Input */}
-             <div className="form-group">
-                <label htmlFor="med-expiry">Expiry Date & Time:</label>
+            {/* Expiry Date */}
+            <div className={styles.formGroup}>
+                <label htmlFor="expiryDate" className={styles.formLabel}>Expiry Date & Time:</label>
                 <input
-                    id="med-expiry"
-                    type="datetime-local" // Standard HTML5 input for date and time
-                    value={expiryDate}
-                    onChange={(e) => setExpiryDate(e.target.value)}
-                    required
-                    disabled={isLoading}
-                    // Optional: Set min attribute to current date/time
-                    min={new Date().toISOString().slice(0, 16)}
+                    id="expiryDate" name="expiryDate" type="datetime-local" required
+                    value={formData.expiryDate} onChange={handleInputChange}
+                    min={new Date().toISOString().slice(0, 16)} // Set minimum to now
+                    className={`${styles.formInput} ${validationErrors.expiryDate ? styles['formInput--error'] : ''}`}
+                    disabled={isLoading} aria-invalid={!!validationErrors.expiryDate}
+                    aria-describedby={validationErrors.expiryDate ? `${errorIdBase}expiryDate` : undefined}
                 />
+                {validationErrors.expiryDate && <p id={`${errorIdBase}expiryDate`} className={styles.inputError}>{validationErrors.expiryDate}</p>}
             </div>
 
-            {/* Latitude and Longitude Inputs */}
-             <div className="form-group" style={{display: 'flex', gap: '15px'}}>
-                 <div style={{flex: 1}}>
-                     <label htmlFor="med-lat">Starting Latitude:</label>
+            {/* Coordinates */}
+            <div className={styles.formRow}>
+                 <div className={styles.formGroup}>
+                     <label htmlFor="latitude" className={styles.formLabel}>
+                         Latitude: <span className={styles.coordinateHint}>(e.g., 40.7128)</span>
+                     </label>
                      <input
-                        id="med-lat"
-                        type="number"
-                        step="any"
-                        value={latitude}
-                        onChange={(e) => setLatitude(e.target.value)}
-                        required
-                        disabled={isLoading}
-                        placeholder="e.g., 34.0522"
-                    />
+                        id="latitude" name="latitude" type="number" step="any" required
+                        value={formData.latitude} onChange={handleInputChange}
+                        placeholder="Enter latitude"
+                        className={`${styles.formInput} ${validationErrors.latitude ? styles['formInput--error'] : ''}`}
+                        disabled={isLoading} aria-invalid={!!validationErrors.latitude}
+                        aria-describedby={validationErrors.latitude ? `${errorIdBase}latitude` : undefined}
+                     />
+                     {validationErrors.latitude && <p id={`${errorIdBase}latitude`} className={styles.inputError}>{validationErrors.latitude}</p>}
                  </div>
-                 <div style={{flex: 1}}>
-                     <label htmlFor="med-lon">Starting Longitude:</label>
+                 <div className={styles.formGroup}>
+                     <label htmlFor="longitude" className={styles.formLabel}>
+                         Longitude: <span className={styles.coordinateHint}>(e.g., -74.0060)</span>
+                     </label>
                      <input
-                        id="med-lon"
-                        type="number"
-                        step="any"
-                        value={longitude}
-                        onChange={(e) => setLongitude(e.target.value)}
-                        required
-                        disabled={isLoading}
-                        placeholder="e.g., -118.2437"
-                    />
+                        id="longitude" name="longitude" type="number" step="any" required
+                        value={formData.longitude} onChange={handleInputChange}
+                        placeholder="Enter longitude"
+                        className={`${styles.formInput} ${validationErrors.longitude ? styles['formInput--error'] : ''}`}
+                        disabled={isLoading} aria-invalid={!!validationErrors.longitude}
+                        aria-describedby={validationErrors.longitude ? `${errorIdBase}longitude` : undefined}
+                     />
+                     {validationErrors.longitude && <p id={`${errorIdBase}longitude`} className={styles.inputError}>{validationErrors.longitude}</p>}
                  </div>
             </div>
 
             {/* Submit Button */}
-            <button
-                type="submit"
-                disabled={isLoading || !contract || !account}
-            >
-                {isLoading ? 'Creating Medicine Batch...' : 'Create Medicine Batch'}
+             <button type="submit" className={styles.submitButton} disabled={isLoading || !contract || !account}>
+                {isLoading ? (
+                    <span className={styles.loading}><span className={styles.spinner}></span>Creating...</span>
+                 ) : 'Create Medicine Batch'}
             </button>
 
-            {/* Display Form Status/Error Message */}
-            {formStatus && (
-                 <p className={formStatus.startsWith("Error:") || formStatus.includes("Failed") ? "error-message" : "info-message"} style={{marginTop: '15px'}}>
-                     {formStatus}
+            {/* Status Message */}
+            {status.message && (
+                 <p className={`${styles.statusMessage} ${styles[`statusMessage--${status.type}`]}`}>
+                     {status.message}
                  </p>
              )}
         </form>
     );
 }
+
+// --- PropTypes ---
+CreateMedicineForm.propTypes = {
+    latitude: PropTypes.string, // Prop receives initial value
+    longitude: PropTypes.string, // Prop receives initial value
+    onSuccess: PropTypes.func,
+    onError: PropTypes.func,
+};
+
+CreateMedicineForm.defaultProps = {
+    latitude: '', // Default internal state takes care of this if prop is undefined/null
+    longitude: '',
+    onSuccess: () => {},
+    onError: () => {},
+};
 
 export default CreateMedicineForm;

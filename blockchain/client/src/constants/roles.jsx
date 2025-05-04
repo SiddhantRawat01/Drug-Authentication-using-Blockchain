@@ -33,6 +33,7 @@ export const AVAILABLE_LOGIN_ROLES = [
     ROLES.WHOLESALER_ROLE,
     ROLES.DISTRIBUTOR_ROLE,
     ROLES.CUSTOMER_ROLE,
+    ROLES.TRANSPORTER_ROLE
 ];
 
 // Helper to get role name from hash

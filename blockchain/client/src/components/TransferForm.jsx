@@ -1,331 +1,430 @@
-// client/src/components/TransferForm.js
-import React, { useState, useCallback } from 'react';
+// client/src/components/TransferForm.jsx // Renamed to .jsx for clarity
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { useWeb3 } from '../contexts/Web3Context';
-import { ROLES, getRoleName } from '../constants/roles'; // Import getRoleName
-import { ethers } from 'ethers'; // Use ethers v6
+import { ROLES, getRoleName } from '../constants/roles';
+import { ethers } from 'ethers';
+import styles from '../styles/TransferForm.module.css'; // Use CSS Module import
 
-/**
- * Reusable form component for initiating batch transfers.
- * Handles both Raw Material and Medicine transfers based on context.
- *
- * @param {object} props - Component props
- * @param {'RAW_MATERIAL' | 'MEDICINE'} props.batchTypeContext - Specifies the type of batch being transferred.
- * @param {string} props.allowedSenderRole - The role hash (from ROLES) required for the sender to initiate this transfer.
- * @param {function} props.onSuccess - Callback function executed on successful transfer initiation.
- * @param {function} props.onError - Callback function executed on error, passing the error message.
- */
+// --- Import Helpers and Constants ---
+import {
+    formatAddress,
+    formatHash,
+    RawMaterialStatus,
+    MedicineStatus
+} from './BatchDetails'; // Adjust path as needed
+
+// --- Constants ---
+const COORD_DECIMALS = 6;
+const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
+const STATUS_TYPE = { // Define status types for clarity
+    INFO: 'info',
+    LOADING: 'loading',
+    SUCCESS: 'success',
+    ERROR: 'error',
+};
+
+const VALIDATION_MESSAGES = {
+    INVALID_ADDRESS: (field) => `${field}: Please enter a valid Ethereum address (0x...).`,
+    INVALID_NUMBER: (field) => `${field}: ${field} must be a valid number.`,
+    REQUIRED: (field) => `${field} is required.`,
+    WALLET_CONNECT: 'Wallet not connected or contract not loaded.',
+    INSUFFICIENT_ROLE: (role) => `You do not have the required ${role} role.`,
+    VALIDATING: 'Validating prerequisites...',
+    VALIDATION_FAILED: 'Prerequisite validation failed', // Base message
+    SENDING: 'Sending transaction...',
+    WAITING: (txHash) => `Waiting for confirmation... (Tx: ${formatHash(txHash)})`,
+    SUCCESS: (txHash) => `Transfer Initiated Successfully! (Tx: ${formatHash(txHash)})`,
+    TX_REVERTED: 'Transaction failed on-chain.',
+    PREREQ_OWNERSHIP: 'Access Denied: You are not the current owner/supplier of this batch.',
+    PREREQ_RECEIVER_MISMATCH_RM: (expected, actual) => `Receiver Mismatch: Batch intended for ${formatAddress(expected)}, not ${formatAddress(actual)}.`,
+    PREREQ_INVALID_STATE: (currentStateName) => `Invalid State: Batch cannot be transferred from its current state (${currentStateName}).`,
+    PREREQ_ROLE_STATE_MISMATCH: (roleName, stateName) => `Role/State Mismatch: Your role (${roleName}) cannot transfer from state (${stateName}).`,
+    PREREQ_TRANSPORTER_ROLE: (addr) => `Invalid Transporter: Address ${formatAddress(addr)} lacks the required Transporter role.`,
+    TRANSFER_FAILED_BASE: 'Transfer Initiation Failed',
+    INTERNAL_ERROR: 'An internal error occurred.',
+};
+
+// --- Helper Function ---
+const isValidCoordinate = (coordString) => {
+    if (typeof coordString !== 'string') return false;
+    const trimmed = coordString.trim();
+    if (trimmed === '') return false; // Coordinates are required
+    const num = Number(trimmed);
+    return !isNaN(num) && isFinite(num);
+};
+
+// --- Component ---
 function TransferForm({ batchTypeContext, allowedSenderRole, onSuccess, onError }) {
-    // Get necessary data and functions from Web3 context
+    // --- Hooks ---
     const {
         contract,
+        signer,
         account,
-        isLoading,
-        setIsLoading,
+        isLoading: isGlobalLoading, // Rename to avoid conflict if using local loading
+        setIsLoading: setGlobalLoading, // Rename for clarity
         getRevertReason,
         hasRole,
-        setError // Use setError from context for broader error display if needed
+        fetchWithLoading, // Use if available for reads
     } = useWeb3();
 
-    // Form state variables
-    const [batchAddress, setBatchAddress] = useState('');
-    const [transporter, setTransporter] = useState('');
-    const [receiver, setReceiver] = useState('');
-    const [latitude, setLatitude] = useState('');
-    const [longitude, setLongitude] = useState('');
-    const [formStatus, setFormStatus] = useState(''); // Local status/error message for the form
+    // --- State ---
+    const [formData, setFormData] = useState({
+        batchAddress: '',
+        transporter: '',
+        receiver: '',
+        latitude: '',
+        longitude: '',
+    });
+    const [validationErrors, setValidationErrors] = useState({}); // Object to hold field-specific errors
+    const [status, setStatus] = useState({ message: '', type: STATUS_TYPE.INFO }); // Unified status/feedback state
+    const [isLocalLoading, setIsLocalLoading] = useState(false); // Local loading for validation/submission
 
-    // Check if the current user has the required role to initiate this transfer
-    const canInitiate = hasRole(allowedSenderRole);
+    // Combined loading state
+    const isLoading = isGlobalLoading || isLocalLoading;
 
-    // --- Client-Side Validation Functions ---
-    // These checks run *before* sending the transaction to provide faster feedback.
-    // The contract performs the definitive validation.
+    // --- Memoized Values ---
+    const roleName = useMemo(() => getRoleName(allowedSenderRole), [allowedSenderRole]);
+    const canInitiate = useMemo(() => hasRole(allowedSenderRole), [hasRole, allowedSenderRole]);
 
-    // Validation specific to Raw Material transfers
-    const validateRMTransfer = useCallback(async () => {
-        if (!contract || !account || !ethers.isAddress(batchAddress) || !ethers.isAddress(receiver)) { // v6 address check
-            return "Invalid addresses or contract connection issue.";
-        }
-        try {
-            const rmDetails = await contract.getRawMaterialDetails(batchAddress);
+    // --- Effects ---
+    // Clear errors when form inputs change
+    useEffect(() => {
+        setValidationErrors({});
+        // Optionally clear general status message on input change, or keep it until next action
+        // setStatus({ message: '', type: STATUS_TYPE.INFO });
+    }, [formData]);
 
-            // 1. Check if caller is the supplier (owner for RM)
-            if (rmDetails.supplier.toLowerCase() !== account.toLowerCase()) {
-                return `Access Denied: You (${account.substring(0,6)}...) are not the supplier of this batch.`;
-            }
-            // 2. Check if the specified receiver matches the batch's intended manufacturer
-            if (rmDetails.intendedManufacturer.toLowerCase() !== receiver.toLowerCase()) {
-                return `Receiver Mismatch: This batch is intended for ${rmDetails.intendedManufacturer.substring(0,6)}..., not ${receiver.substring(0,6)}...`;
-            }
-            // 3. Check if the batch is in the correct state ('Created')
-            // Status enum: 0: Created, 1: InTransit, 2: Received, 3: Destroyed
-            if (Number(rmDetails.status) !== 0) { // Convert BigInt status to Number for comparison
-                return "Invalid State: Batch is not in 'Created' state (it might already be in transit or received).";
-            }
-            return null; // Validation passed
-        } catch (err) {
-            console.error("Raw Material Validation Error:", err);
-            // Attempt to parse contract errors during validation
-            return `Validation Error: ${getRevertReason(err)}`;
-        }
-    }, [contract, batchAddress, receiver, account, getRevertReason]); // Dependencies for useCallback
+    // --- Callbacks ---
+    const handleInputChange = useCallback((e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }, []);
 
-    // Validation specific to Medicine transfers
-    const validateMedTransfer = useCallback(async () => {
-        if (!contract || !account || !ethers.isAddress(batchAddress) || !ethers.isAddress(receiver)) { // v6 address check
-            return "Invalid addresses or contract connection issue.";
-        }
-        try {
-            const medDetails = await contract.getMedicineDetails(batchAddress);
+    const clearStatus = useCallback(() => {
+        setStatus({ message: '', type: STATUS_TYPE.INFO });
+        setValidationErrors({});
+        if (onError) onError(null); // Clear parent error state too
+    }, [onError]);
 
-            // 1. Check if caller is the current owner of the medicine batch
-            if (medDetails.currentOwner.toLowerCase() !== account.toLowerCase()) {
-                return `Access Denied: You (${account.substring(0,6)}...) are not the current owner (${medDetails.currentOwner.substring(0,6)}...) of this batch.`;
-            }
+    // --- Validation Logic ---
+    const validateSync = useCallback(() => {
+        const errors = {};
+        const { batchAddress, transporter, receiver, latitude, longitude } = formData;
 
-            // 2. Check if the batch is in a transferable state based on the sender's role
-            // Status enum: 0: Created, 2: AtWholesaler, 4: AtDistributor are transferable states
-            const currentStatus = Number(medDetails.status); // Convert BigInt status
-            const requiredSenderRoles = {
-                 0: ROLES.MANUFACTURER_ROLE, // Manufacturer sends when Created
-                 2: ROLES.WHOLESALER_ROLE,   // Wholesaler sends when AtWholesaler
-                 4: ROLES.DISTRIBUTOR_ROLE,  // Distributor sends when AtDistributor
-            };
+        if (!batchAddress) errors.batchAddress = VALIDATION_MESSAGES.REQUIRED('Batch Address');
+        else if (!ethers.isAddress(batchAddress)) errors.batchAddress = VALIDATION_MESSAGES.INVALID_ADDRESS('Batch Address');
 
-            // Ensure the current user's role matches the role required for the batch's current state
-            if (requiredSenderRoles[currentStatus] !== allowedSenderRole) {
-               return `Role Mismatch: Your role (${getRoleName(allowedSenderRole)}) cannot initiate transfer from the batch's current state (${currentStatus}).`;
-            }
+        if (!transporter) errors.transporter = VALIDATION_MESSAGES.REQUIRED('Transporter Address');
+        else if (!ethers.isAddress(transporter)) errors.transporter = VALIDATION_MESSAGES.INVALID_ADDRESS('Transporter Address');
 
-            // Check if the status itself is one of the transferable states
-             if (currentStatus !== 0 && currentStatus !== 2 && currentStatus !== 4) {
-                return `Invalid State: Batch cannot be transferred from its current state (Status code: ${currentStatus}).`;
-             }
+        if (!receiver) errors.receiver = VALIDATION_MESSAGES.REQUIRED('Receiver Address');
+        else if (!ethers.isAddress(receiver)) errors.receiver = VALIDATION_MESSAGES.INVALID_ADDRESS('Receiver Address');
 
-            // Optional: Add a basic check on the receiver's role (contract enforces definitively)
-            // e.g., If sending from Manufacturer (status 0), receiver should ideally be Wholesaler or Distributor.
-            // const hasWholesalerRole = await contract.hasRole(ROLES.WHOLESALER_ROLE, receiver);
-            // const hasDistributorRole = await contract.hasRole(ROLES.DISTRIBUTOR_ROLE, receiver);
-            // if (currentStatus === 0 && !hasWholesalerRole && !hasDistributorRole) {
-            //     return "Warning: Receiver may not have the expected Wholesaler or Distributor role.";
-            // }
-            // Similar checks for other states...
+        if (!latitude) errors.latitude = VALIDATION_MESSAGES.REQUIRED('Latitude');
+        else if (!isValidCoordinate(latitude)) errors.latitude = VALIDATION_MESSAGES.INVALID_NUMBER('Latitude');
 
-            return null; // Basic client-side validation passed
-        } catch (err) {
-            console.error("Medicine Validation Error:", err);
-            return `Validation Error: ${getRevertReason(err)}`;
-        }
-     }, [contract, batchAddress, receiver, account, getRevertReason, allowedSenderRole]); // Dependencies
+        if (!longitude) errors.longitude = VALIDATION_MESSAGES.REQUIRED('Longitude');
+        else if (!isValidCoordinate(longitude)) errors.longitude = VALIDATION_MESSAGES.INVALID_NUMBER('Longitude');
 
-    // --- Form Submission Handler ---
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setFormStatus(''); // Clear previous status
-        if (onError) onError(null); // Clear parent error state via callback
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0; // Return true if valid
+    }, [formData]);
 
-        // Initial checks
-        if (!contract || !account || !canInitiate) {
-            const errorMsg = "Cannot initiate transfer: Wallet/contract issue or insufficient role.";
-            setFormStatus(`Error: ${errorMsg}`);
-            if (onError) onError(errorMsg);
-            return;
-        }
-        if (!ethers.isAddress(batchAddress) || !ethers.isAddress(transporter) || !ethers.isAddress(receiver)) { // v6 check
-            setFormStatus("Error: Please enter valid Ethereum addresses for Batch, Transporter, and Receiver.");
-            return;
-        }
-        const latNum = parseFloat(latitude);
-        const lonNum = parseFloat(longitude);
-        if (isNaN(latNum) || isNaN(lonNum)) {
-           setFormStatus("Error: Latitude and Longitude must be valid numbers.");
-           return;
-        }
+    const validateAsyncPrerequisites = useCallback(async () => {
+        if (!contract || !account || !signer) throw new Error(VALIDATION_MESSAGES.WALLET_CONNECT);
+        const { batchAddress, receiver, transporter } = formData; // Get current values
 
-        setIsLoading(true); // Set loading state
-        setFormStatus('Validating transfer details...');
+        // Use fetchWithLoading if provided by context, otherwise just call directly
+        const executeRead = fetchWithLoading ?? ((func) => func());
 
-        // Perform context-specific client-side validation
-        let validationError = null;
         try {
             if (batchTypeContext === 'RAW_MATERIAL') {
-                validationError = await validateRMTransfer();
+                const details = await executeRead(() => contract.getRawMaterialDetails(batchAddress));
+                const currentStatus = Number(details.status);
+                const expectedStatus = 0; // RawMaterialStatus.Created
+
+                if (details.supplier.toLowerCase() !== account.toLowerCase()) {
+                    throw new Error(VALIDATION_MESSAGES.PREREQ_OWNERSHIP);
+                }
+                if (details.intendedManufacturer.toLowerCase() !== receiver.toLowerCase()) {
+                    throw new Error(VALIDATION_MESSAGES.PREREQ_RECEIVER_MISMATCH_RM(details.intendedManufacturer, receiver));
+                }
+                if (currentStatus !== expectedStatus) {
+                     throw new Error(VALIDATION_MESSAGES.PREREQ_INVALID_STATE(RawMaterialStatus[currentStatus] ?? `Unknown (${currentStatus})`));
+                }
+
             } else if (batchTypeContext === 'MEDICINE') {
-                validationError = await validateMedTransfer();
+                const details = await executeRead(() => contract.getMedicineDetails(batchAddress));
+                const currentStatus = Number(details.status);
+                const requiredSenderRolesMap = {
+                    0: ROLES.MANUFACTURER_ROLE, // Status: Created
+                    2: ROLES.WHOLESALER_ROLE,   // Status: AtWholesaler
+                    4: ROLES.DISTRIBUTOR_ROLE,  // Status: AtDistributor
+                };
+                const requiredRoleForState = requiredSenderRolesMap[currentStatus];
+                const currentStateName = MedicineStatus[currentStatus] ?? `Unknown (${currentStatus})`;
+
+                if (details.currentOwner.toLowerCase() !== account.toLowerCase()) {
+                    throw new Error(VALIDATION_MESSAGES.PREREQ_OWNERSHIP);
+                }
+                if (requiredRoleForState === undefined) {
+                    throw new Error(VALIDATION_MESSAGES.PREREQ_INVALID_STATE(currentStateName));
+                }
+                // This check ensures the *current* state *requires* the role this form instance is meant for.
+                // It complements the initial `canInitiate` check.
+                if (allowedSenderRole !== requiredRoleForState) {
+                    throw new Error(VALIDATION_MESSAGES.PREREQ_ROLE_STATE_MISMATCH(roleName, currentStateName));
+                }
+
+                // Optional further checks (e.g., receiver role) could go here
+
             } else {
-                validationError = "Internal Error: Invalid batch type context provided to the form.";
+                throw new Error(VALIDATION_MESSAGES.INTERNAL_ERROR + ": Invalid batchTypeContext.");
             }
-        } catch (valErr) {
-            validationError = `Validation exception: ${valErr.message}`;
+
+            // Optional: Check Transporter Role (Contract enforces fully, but client-side check can improve UX)
+             // const transporterHasRole = await executeRead(() => contract.hasRole(ROLES.TRANSPORTER_ROLE, transporter));
+             // if (!transporterHasRole) {
+             //     throw new Error(VALIDATION_MESSAGES.PREREQ_TRANSPORTER_ROLE(transporter));
+             // }
+
+            return true; // Prerequisites met
+
+        } catch (err) {
+            console.error(`${batchTypeContext} prerequisite validation error:`, err);
+            // Re-throw with a potentially parsed reason for the handleSubmit catch block
+            throw new Error(`${VALIDATION_MESSAGES.VALIDATION_FAILED}: ${getRevertReason(err) || err.message}`);
         }
+    }, [
+        contract, account, signer, formData, batchTypeContext, allowedSenderRole,
+        fetchWithLoading, getRevertReason, roleName // Include dependencies
+    ]);
 
+    // --- Submit Handler ---
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        clearStatus(); // Clear previous status/errors
 
-        // If validation fails, stop and show error
-        if (validationError) {
-            setFormStatus(`Error: ${validationError}`);
-            setIsLoading(false); // Reset loading state
-            if (onError) onError(validationError); // Report error to parent
+        // 1. Basic Checks
+        if (!contract || !account || !signer) {
+            setStatus({ message: VALIDATION_MESSAGES.WALLET_CONNECT, type: STATUS_TYPE.ERROR });
+            return;
+        }
+        if (!canInitiate) {
+            setStatus({ message: VALIDATION_MESSAGES.INSUFFICIENT_ROLE(roleName), type: STATUS_TYPE.ERROR });
             return;
         }
 
-        // If validation passes, proceed with the transaction
-        setFormStatus('Validation passed. Sending transaction...');
+        // 2. Synchronous Validation
+        if (!validateSync()) {
+            setStatus({ message: 'Please fix the errors marked below.', type: STATUS_TYPE.ERROR });
+            return;
+        }
 
+        setIsLocalLoading(true); // Start local loading
+
+        // 3. Asynchronous Prerequisite Validation
         try {
-            // Convert coordinates to BigInt for int256 (ethers v6)
-            const latInt = Math.round(latNum * 1e6);
-            const lonInt = Math.round(lonNum * 1e6);
+            setStatus({ message: VALIDATION_MESSAGES.VALIDATING, type: STATUS_TYPE.LOADING });
+            await validateAsyncPrerequisites(); // Throws error on failure
 
-            // Call the contract function
-            const tx = await contract.initiateTransfer(
-                batchAddress,
-                transporter,
-                receiver,
-                latInt,
-                lonInt,
-                { from: account } // Optional: specify sender, though signer handles it
-            );
+        } catch (prereqError) {
+            setStatus({ message: prereqError.message, type: STATUS_TYPE.ERROR });
+            if (onError) onError(prereqError.message);
+            setIsLocalLoading(false);
+            return;
+        }
 
-            setFormStatus(`Transaction sent: ${tx.hash}. Waiting for confirmation...`);
+        // 4. Prepare and Send Transaction
+        try {
+            setStatus({ message: VALIDATION_MESSAGES.SENDING, type: STATUS_TYPE.LOADING });
+            const { batchAddress, transporter, receiver, latitude, longitude } = formData;
 
-            // Wait for the transaction to be mined
-            const receipt = await tx.wait();
+            const latScaled = ethers.parseUnits(latitude, COORD_DECIMALS);
+            const lonScaled = ethers.parseUnits(longitude, COORD_DECIMALS);
 
-            setFormStatus(`Transfer Initiated Successfully! Tx: ${receipt.hash}`); // Use receipt.hash in v6
-            if (onSuccess) onSuccess(); // Execute success callback
+            const tx = await contract.initiateTransfer(batchAddress, transporter, receiver, latScaled, lonScaled);
 
-            // Reset form fields after successful submission
-            setBatchAddress('');
-            setTransporter('');
-            setReceiver('');
-            setLatitude('');
-            setLongitude('');
+            setStatus({ message: VALIDATION_MESSAGES.WAITING(tx.hash), type: STATUS_TYPE.LOADING });
 
-        } catch (err) {
-            console.error("Initiate Transfer Error:", err);
-            const reason = getRevertReason(err); // Use helper to parse error
-            // Provide specific feedback based on common contract errors
-            if (reason.includes("TransporterLacksRole")) {
-                setFormStatus("Error: Transfer Failed - The selected Transporter does not have the required role.");
-            } else if (reason.includes("ReceiverRoleInvalidForStage") || reason.includes("ManufacturerLacksRole") || reason.includes("ReceiverMismatch")) {
-                 setFormStatus("Error: Transfer Failed - The Receiver does not have the appropriate role or address for this stage/batch.");
-            } else if (reason.includes("InvalidStateForAction")) {
-                setFormStatus("Error: Transfer Failed - The batch is not in a state where transfer can be initiated.");
-            } else if (reason.includes("CallerIsNotCurrentOwner") || reason.includes("CallerIsNotSupplier")) {
-                 setFormStatus("Error: Transfer Failed - You are not authorized to transfer this specific batch.");
-            } else {
-                setFormStatus(`Error: Transfer Failed - ${reason}`);
+            const receipt = await tx.wait(1);
+
+            if (receipt.status === 0) {
+                throw new Error(VALIDATION_MESSAGES.TX_REVERTED + ` (Tx: ${formatHash(receipt.hash)})`);
             }
-            if (onError) onError(formStatus); // Pass final error message to parent
+
+            // Success!
+            const successMsg = VALIDATION_MESSAGES.SUCCESS(receipt.hash);
+            setStatus({ message: successMsg, type: STATUS_TYPE.SUCCESS });
+            if (onSuccess) onSuccess(receipt.hash, batchAddress); // Pass hash and address back
+
+            // Reset form
+            setFormData({ batchAddress: '', transporter: '', receiver: '', latitude: '', longitude: '' });
+            setValidationErrors({});
+
+        } catch (submitError) {
+            console.error("Initiate Transfer Transaction Error:", submitError);
+            const reason = getRevertReason(submitError);
+            let userErrorMessage = `${VALIDATION_MESSAGES.TRANSFER_FAILED_BASE}: ${reason || submitError.message}`;
+
+            // Refine error message based on known reasons (optional but good UX)
+            // Examples:
+            // if (reason.includes("TransporterLacksRole")) ...
+            // if (reason.includes("InvalidStateForAction")) ...
+
+            setStatus({ message: userErrorMessage, type: STATUS_TYPE.ERROR });
+            if (onError) onError(userErrorMessage);
+
         } finally {
-            setIsLoading(false); // Reset loading state regardless of outcome
+            setIsLocalLoading(false); // Stop local loading
         }
     };
 
-    // --- JSX Rendering ---
+    // --- Render ---
     return (
-        <form onSubmit={handleSubmit} className="form-container">
-            {/* Dynamically set title based on context */}
-            <h3>Initiate {batchTypeContext === 'RAW_MATERIAL' ? 'Raw Material' : 'Medicine'} Transfer</h3>
+        <form onSubmit={handleSubmit} className={styles.transferForm} noValidate>
+            <h3 className={styles.formTitle}>
+                Initiate {batchTypeContext === 'RAW_MATERIAL' ? 'Raw Material' : 'Medicine'} Transfer
+            </h3>
 
-            {/* Display message if user lacks the required role */}
             {!canInitiate && (
-                <p className="error-message">
-                    You do not have the required role ({getRoleName(allowedSenderRole)}) to initiate this type of transfer.
+                <p className={styles.permissionError}>
+                    Insufficient permissions. Requires role: {roleName}.
                 </p>
             )}
 
-            {/* Form Inputs */}
-            <div className="form-group">
-                <label htmlFor={`tf-batch-${batchTypeContext}`}>Batch Address:</label>
+            {/* Use map or explicit fields for better structure */}
+            <div className={styles.formGroup}>
+                <label htmlFor="batchAddress" className={styles.formLabel}>Batch Address:</label>
                 <input
-                    id={`tf-batch-${batchTypeContext}`}
+                    id="batchAddress"
+                    name="batchAddress" // Add name attribute
                     type="text"
-                    value={batchAddress}
-                    onChange={(e) => setBatchAddress(e.target.value)}
+                    value={formData.batchAddress}
+                    onChange={handleInputChange}
                     required
-                    pattern="^0x[a-fA-F0-9]{40}$"
-                    title="Enter a valid Ethereum address (0x...)"
-                    disabled={!canInitiate} // Disable if user can't initiate
+                    pattern={ADDRESS_REGEX.source}
+                    placeholder="0x..."
+                    className={`${styles.formInput} ${validationErrors.batchAddress ? styles['formInput--error'] : ''}`}
+                    disabled={!canInitiate || isLoading}
+                    aria-invalid={!!validationErrors.batchAddress}
+                    aria-describedby={validationErrors.batchAddress ? "batchAddress-error" : undefined}
                 />
+                {validationErrors.batchAddress && <p id="batchAddress-error" className={styles.inputError}>{validationErrors.batchAddress}</p>}
             </div>
-             <div className="form-group">
-                <label htmlFor={`tf-transporter-${batchTypeContext}`}>Transporter Address:</label>
+
+            <div className={styles.formGroup}>
+                <label htmlFor="transporter" className={styles.formLabel}>Transporter Address:</label>
                 <input
-                    id={`tf-transporter-${batchTypeContext}`}
+                    id="transporter"
+                    name="transporter"
                     type="text"
-                    value={transporter}
-                    onChange={(e) => setTransporter(e.target.value)}
+                    value={formData.transporter}
+                    onChange={handleInputChange}
                     required
-                    pattern="^0x[a-fA-F0-9]{40}$"
-                    title="Enter a valid Ethereum address (0x...)"
-                    disabled={!canInitiate}
+                    pattern={ADDRESS_REGEX.source}
+                    placeholder="0x..."
+                    className={`${styles.formInput} ${validationErrors.transporter ? styles['formInput--error'] : ''}`}
+                    disabled={!canInitiate || isLoading}
+                    aria-invalid={!!validationErrors.transporter}
+                    aria-describedby={validationErrors.transporter ? "transporter-error" : undefined}
                 />
+                {validationErrors.transporter && <p id="transporter-error" className={styles.inputError}>{validationErrors.transporter}</p>}
             </div>
-            <div className="form-group">
-                <label htmlFor={`tf-receiver-${batchTypeContext}`}>Receiver Address:</label>
+
+            <div className={styles.formGroup}>
+                <label htmlFor="receiver" className={styles.formLabel}>Receiver Address:</label>
                 <input
-                    id={`tf-receiver-${batchTypeContext}`}
+                    id="receiver"
+                    name="receiver"
                     type="text"
-                    value={receiver}
-                    onChange={(e) => setReceiver(e.target.value)}
+                    value={formData.receiver}
+                    onChange={handleInputChange}
                     required
-                    pattern="^0x[a-fA-F0-9]{40}$"
-                    title="Enter a valid Ethereum address (0x...)"
-                    disabled={!canInitiate}
+                    pattern={ADDRESS_REGEX.source}
+                    placeholder="0x..."
+                     className={`${styles.formInput} ${validationErrors.receiver ? styles['formInput--error'] : ''}`}
+                    disabled={!canInitiate || isLoading}
+                    aria-invalid={!!validationErrors.receiver}
+                    aria-describedby={validationErrors.receiver ? "receiver-error" : "receiver-hint"}
                 />
-                {/* Add context hint for Raw Material transfers */}
-                {batchTypeContext === 'RAW_MATERIAL' && (
-                    <small style={{display: 'block', marginTop: '3px', color: '#555'}}>
-                        (Must match the Intended Manufacturer stored in the batch)
+                {validationErrors.receiver && <p id="receiver-error" className={styles.inputError}>{validationErrors.receiver}</p>}
+                {batchTypeContext === 'RAW_MATERIAL' && !validationErrors.receiver && (
+                    <small id="receiver-hint" className={styles.formHint}>
+                        (Must match the batch's Intended Manufacturer)
                     </small>
                 )}
             </div>
-             <div className="form-group" style={{display: 'flex', gap: '15px'}}>
-                 <div style={{flex: 1}}>
-                     <label htmlFor={`tf-lat-${batchTypeContext}`}>Current Latitude:</label>
+
+            <div className={styles.formRow}>
+                 <div className={styles.formGroup /* + styles.formGroup--half optional */}>
+                     <label htmlFor="latitude" className={styles.formLabel}>Current Latitude:</label>
                      <input
-                        id={`tf-lat-${batchTypeContext}`}
+                        id="latitude"
+                        name="latitude"
                         type="number"
-                        step="any" // Allow decimals
-                        value={latitude}
-                        onChange={(e) => setLatitude(e.target.value)}
+                        step="any"
+                        value={formData.latitude}
+                        onChange={handleInputChange}
                         required
                         placeholder="e.g., 40.7128"
-                        disabled={!canInitiate}
+                        className={`${styles.formInput} ${validationErrors.latitude ? styles['formInput--error'] : ''}`}
+                        disabled={!canInitiate || isLoading}
+                        aria-invalid={!!validationErrors.latitude}
+                        aria-describedby={validationErrors.latitude ? "latitude-error" : undefined}
                      />
+                     {validationErrors.latitude && <p id="latitude-error" className={styles.inputError}>{validationErrors.latitude}</p>}
                  </div>
-                 <div style={{flex: 1}}>
-                     <label htmlFor={`tf-lon-${batchTypeContext}`}>Current Longitude:</label>
+                 <div className={styles.formGroup /* + styles.formGroup--half optional */}>
+                     <label htmlFor="longitude" className={styles.formLabel}>Current Longitude:</label>
                      <input
-                        id={`tf-lon-${batchTypeContext}`}
+                        id="longitude"
+                        name="longitude"
                         type="number"
-                        step="any" // Allow decimals
-                        value={longitude}
-                        onChange={(e) => setLongitude(e.target.value)}
+                        step="any"
+                        value={formData.longitude}
+                        onChange={handleInputChange}
                         required
                         placeholder="e.g., -74.0060"
-                        disabled={!canInitiate}
+                        className={`${styles.formInput} ${validationErrors.longitude ? styles['formInput--error'] : ''}`}
+                        disabled={!canInitiate || isLoading}
+                        aria-invalid={!!validationErrors.longitude}
+                        aria-describedby={validationErrors.longitude ? "longitude-error" : undefined}
                      />
+                     {validationErrors.longitude && <p id="longitude-error" className={styles.inputError}>{validationErrors.longitude}</p>}
                  </div>
             </div>
 
-            {/* Submit Button */}
             <button
                 type="submit"
-                disabled={isLoading || !contract || !canInitiate} // Also disable if loading or no contract/role
+                className={styles.submitButton}
+                disabled={isLoading || !contract || !canInitiate}
             >
-                {isLoading ? 'Processing...' : 'Initiate Transfer'}
+                {isLoading ? 'Processing...' : `Initiate ${batchTypeContext === 'RAW_MATERIAL' ? 'RM' : 'Med'} Transfer`}
             </button>
 
-            {/* Display Form Status/Error Message */}
-            {formStatus && (
-                 <p className={formStatus.startsWith("Error:") ? "error-message" : "info-message"} style={{marginTop: '15px'}}>
-                     {formStatus}
+            {/* Display unified status message */}
+            {status.message && (
+                 <p className={`${styles.statusMessage} ${styles[`statusMessage--${status.type}`]}`}>
+                     {status.message}
                  </p>
              )}
         </form>
     );
 }
+
+// --- PropTypes Definition (Remains the same) ---
+TransferForm.propTypes = {
+    batchTypeContext: PropTypes.oneOf(['RAW_MATERIAL', 'MEDICINE']).isRequired,
+    allowedSenderRole: PropTypes.string.isRequired,
+    onSuccess: PropTypes.func,
+    onError: PropTypes.func,
+};
+
+TransferForm.defaultProps = {
+    onSuccess: () => {},
+    onError: () => {},
+};
 
 export default TransferForm;
