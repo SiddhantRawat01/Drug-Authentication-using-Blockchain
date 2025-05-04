@@ -28,6 +28,7 @@ project-root/
 ### 1. Install Dependencies
 
 - `cd "smart contracts"`
+- `npm i`
 - `npm install -g truffle`
 
 ### 2. Environment Configuration
