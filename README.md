@@ -32,7 +32,7 @@ project-root/
 
 ### 2. Environment Configuration
 
-- Create `.env` file in the blockchain root with:
+- Create `.env` file in the smart contracts root with:
 
 - MNEMONIC="your 12-word metamask recovery phrase"
 
@@ -60,7 +60,7 @@ project-root/
 
 
 ### 2. Environment Variable Setup
-Create `.env` in `client/` with:
+Create `.env` in `frontend/` with:
 
 - 🔑 VITE_APP_CONTRACT_ADDRESS="deployed_contract_address"
 - 🔑 VITE_APP_NETWORK_ID=11155111
