@@ -4,120 +4,135 @@ pragma solidity ^0.8.20;
 import { Errors } from "../libraries/Errors.sol";
 
 /**
- * @title Medicine (Simplified Batch Contract)
- * @dev Data container for medicine batches. State managed strictly by SupplyChainLogic via delegatecall.
+ * @title Medicine (Batch Contract)
+ * @dev Data container for medicine batches. State managed strictly by SupplyChainLogic.
+ *      Uses standard naming conventions internally; public interface preserved.
  */
 contract Medicine {
     // --- Types ---
-    // Public enum accessible via Medicine.Status
-    enum Status { Created, InTransitToW, AtWholesaler, InTransitToD, AtDistributor, InTransitToC, AtCustomer, ConsumedOrSold, Destroyed } // uint8
+    enum Status {
+        Created,        // Initial state after manufacturing
+        InTransitToW,   // Moving to Wholesaler
+        AtWholesaler,   // Received by Wholesaler
+        InTransitToD,   // Moving to Distributor
+        AtDistributor,  // Received by Distributor
+        InTransitToC,   // Moving to Customer/Pharmacy/Hospital
+        AtCustomer,     // Received by end-point/customer
+        ConsumedOrSold, // Final state indicating use/sale
+        Destroyed       // Final state indicating destruction
+    }
 
-    // --- State ---
-    address public immutable batchId;
-    address public immutable supplyChainContract; // Authorized state modifier (SupplyChainProxy address)
+    // --- State (Immutable data set at creation) ---
+    address public immutable batchId; // Address of this contract
+    address public immutable supplyChainContract; // Address of the controlling Logic contract
     bytes32 public immutable description;
     uint public immutable quantity;
-    address[] public rawMaterialBatchIds;
-    address public immutable manufacturer;
+    address[] public  rawMaterialBatchIds; // Store immutably if not modified after creation
+    address public immutable manufacturer; // Creator of the batch
     uint public immutable creationTime;
     uint public immutable expiryDate;
 
-    Status public status; // public getter
-    address public currentOwner;
-    address public currentTransporter;
-    address public currentDestination;
-    uint public lastUpdateTime;
+    // --- State (Mutable data managed by SupplyChainLogic) ---
+    Status public status;
+    address public currentOwner; // Current holder (Manufacturer -> Wholesaler -> Distributor -> Customer)
+    address public currentTransporter; // Assigned during transit phases
+    address public currentDestination; // Expected recipient during transit phases
+    uint public lastUpdateTime; // Timestamp of the last state change
 
-    // --- Events ---
+    // --- Events (PascalCase - preserved) ---
     event StatusChanged(Status newStatus, uint timestamp);
     event OwnershipTransferred(address indexed from, address indexed to, uint timestamp);
     event TransporterAssigned(address indexed transporter, address indexed destination, uint timestamp);
-    event BatchDestroyed(bytes32 reasonCode, uint timestamp); // Use bytes32 for reason
-    event BatchFinalized(uint timestamp);
+    event BatchDestroyed(bytes32 reasonCode, uint timestamp);
+    event BatchFinalized(uint timestamp); // For ConsumedOrSold status
 
     // --- Modifiers ---
     modifier onlySupplyChain() {
         if (msg.sender != supplyChainContract) {
-            revert Errors.Batch_UnauthorizedCaller(msg.sender, supplyChainContract);
+            revert Errors.BatchUnauthorizedCaller(msg.sender, supplyChainContract);
         }
         _;
     }
 
     // --- Constructor ---
     constructor(
-        address _supplyChainContract, // Address of the SupplyChainProxy
+        address _supplyChainContract,
         bytes32 _description,
         uint _quantity,
-        address[] memory _rawMaterialBatchIds, // SC validates non-empty
-        address _manufacturer, // SC validates non-zero
-        uint _expiryDate // SC validates future date
+        address[] memory _rawMaterialBatchIds,
+        address _manufacturer,
+        uint _expiryDate
     ) {
+        // Basic address validation
         if (_supplyChainContract == address(0)) revert Errors.AccessControlZeroAddress();
-        // quantity > 0 check done by SC
+        if (_manufacturer == address(0)) revert Errors.AccessControlZeroAddress();
+        // Other validation (quantity, expiry, RM IDs) happens in Logic contract
 
         batchId = address(this);
         supplyChainContract = _supplyChainContract;
         description = _description;
         quantity = _quantity;
-        rawMaterialBatchIds = _rawMaterialBatchIds;
+        rawMaterialBatchIds = _rawMaterialBatchIds; // Assign immutable array
         manufacturer = _manufacturer;
-        expiryDate = _expiryDate;
         creationTime = block.timestamp;
+        expiryDate = _expiryDate; // Validation done in Logic
 
-        status = Status.Created;
+        status = Status.Created; // Initial status
         currentOwner = _manufacturer; // Initial owner
         lastUpdateTime = block.timestamp;
 
         emit StatusChanged(status, lastUpdateTime);
+        // Emit initial ownership (from address(0) conceptually)
         emit OwnershipTransferred(address(0), currentOwner, lastUpdateTime);
     }
 
-    // --- State Transitions (ONLY callable by SupplyChain contract proxy) ---
+    // --- State Transitions (Called by SupplyChainLogic only) ---
 
     /**
-     * @dev Sets the batch status to an InTransit state.
-     * @notice Relies on SC to provide valid next status, transporter, destination and ensure valid start state.
+     * @dev Sets the batch status to an "InTransit" state and assigns transporter/destination.
+     * @param _nextTransitStatus The target transit status (InTransitToW, InTransitToD, InTransitToC).
+     * @param _transporter The address of the transporter.
+     * @param _destination The address of the intended receiver.
      */
-    function setInTransit(Status _nextStatus, address _transporter, address _destination) external onlySupplyChain {
-        // Basic state check (must be in a 'resting' state like Created, AtWholesaler, AtDistributor)
-        if (status != Status.Created && status != Status.AtWholesaler && status != Status.AtDistributor) {
-            // Use a more specific error indicating an invalid starting state for transit
-            revert Errors.Med_InvalidStateTransition(uint8(status), uint8(_nextStatus));
-        }
-        // Minimal check: ensure _nextStatus is actually an InTransit status for safety. Could be removed if SC guarantees it.
-        if (_nextStatus != Status.InTransitToW && _nextStatus != Status.InTransitToD && _nextStatus != Status.InTransitToC) {
-            revert Errors.Med_InvalidStateTransition(uint8(status), uint8(_nextStatus)); // Invalid target state for this function
-        }
-        // Assume SC validated the specific transition logic (e.g., Created -> InTransitToW is valid)
+    function setInTransit(Status _nextTransitStatus, address _transporter, address _destination) external onlySupplyChain {
+        // State machine checks (Defense-in-depth)
+        bool validPriorState = status == Status.Created || status == Status.AtWholesaler || status == Status.AtDistributor;
+        bool validTargetState = _nextTransitStatus == Status.InTransitToW || _nextTransitStatus == Status.InTransitToD || _nextTransitStatus == Status.InTransitToC;
 
-        status = _nextStatus;
+        if (!validPriorState || !validTargetState) {
+            revert Errors.MedInvalidStateTransition(uint8(status), uint8(_nextTransitStatus));
+        }
+        // Further logic checks (e.g., Created -> InTransitToW only) handled in SupplyChainLogic
+
+        status = _nextTransitStatus;
         currentTransporter = _transporter;
         currentDestination = _destination;
         lastUpdateTime = block.timestamp;
+
         emit TransporterAssigned(_transporter, _destination, lastUpdateTime);
         emit StatusChanged(status, lastUpdateTime);
     }
 
     /**
-     * @dev Sets the batch status upon confirmed receipt.
-     * @notice Relies on SC to provide valid next status, ensure receiver matches destination, and ensure valid start state.
+     * @dev Sets the batch status to an "At" state upon receipt and updates the owner.
+     * @param _nextAtStatus The target received status (AtWholesaler, AtDistributor, AtCustomer).
+     * @param _receiver The address of the receiver (becomes the new owner).
      */
-    function setReceived(Status _nextStatus, address _receiver) external onlySupplyChain {
-        // Basic state check (must be in a 'transit' state)
-        if (status != Status.InTransitToW && status != Status.InTransitToD && status != Status.InTransitToC) {
-             revert Errors.Med_InvalidStateTransition(uint8(status), uint8(_nextStatus)); // Invalid start state for receiving
+    function setReceived(Status _nextAtStatus, address _receiver) external onlySupplyChain {
+        // State machine checks (Defense-in-depth)
+        bool validPriorState = status == Status.InTransitToW || status == Status.InTransitToD || status == Status.InTransitToC;
+        bool validTargetState = _nextAtStatus == Status.AtWholesaler || _nextAtStatus == Status.AtDistributor || _nextAtStatus == Status.AtCustomer;
+
+        if (!validPriorState || !validTargetState) {
+             revert Errors.MedInvalidStateTransition(uint8(status), uint8(_nextAtStatus));
         }
-         // Minimal check: ensure _nextStatus is actually an "At" status. Could be removed if SC guarantees it.
-        if (_nextStatus != Status.AtWholesaler && _nextStatus != Status.AtDistributor && _nextStatus != Status.AtCustomer) {
-            revert Errors.Med_InvalidStateTransition(uint8(status), uint8(_nextStatus)); // Invalid target state for this function
-        }
-        // Assume SC validated the specific transition logic (e.g., InTransitToW -> AtWholesaler is valid)
-        // Assume SC validated receiver == currentDestination
+         // Further logic checks (e.g., InTransitToW -> AtWholesaler only) handled in SupplyChainLogic
 
         address previousOwner = currentOwner;
-        status = _nextStatus;
-        currentOwner = _receiver; // Ownership transfers
-        currentTransporter = address(0);
+
+        status = _nextAtStatus;
+        currentOwner = _receiver; // Ownership transfer
+        currentTransporter = address(0); // Clear transit info
         currentDestination = address(0);
         lastUpdateTime = block.timestamp;
 
@@ -125,44 +140,47 @@ contract Medicine {
         emit StatusChanged(status, lastUpdateTime);
     }
 
-    /**
-     * @dev Sets the final ConsumedOrSold status. Requires AtCustomer state.
-     */
+    /** @dev Sets the batch status to ConsumedOrSold (final state). */
     function setConsumedOrSold() external onlySupplyChain {
+        // State machine check (Defense-in-depth)
         if (status != Status.AtCustomer) {
-            // Use Batch_InvalidStateForAction as it's a general requirement check
-            revert Errors.Batch_InvalidStateForAction(uint8(status), uint8(Status.AtCustomer));
+            // Using BatchInvalidStateForAction as it's a final action, not a typical transition
+            revert Errors.BatchInvalidStateForAction(uint8(status), uint8(Status.ConsumedOrSold));
         }
+
         status = Status.ConsumedOrSold;
+        // Owner remains the customer who consumed/sold it
         lastUpdateTime = block.timestamp;
         emit BatchFinalized(lastUpdateTime);
         emit StatusChanged(status, lastUpdateTime);
     }
 
-    /**
-     * @dev Sets the Destroyed status. Cannot be called if already destroyed or consumed/sold.
-     */
+    /** @dev Sets the batch status to Destroyed (final state). */
     function setDestroyed(bytes32 _reasonCode) external onlySupplyChain {
+        // Prevent action on already finalized states
         if (status == Status.Destroyed || status == Status.ConsumedOrSold) {
-            revert Errors.Med_AlreadyDestroyedOrFinalized();
+             revert Errors.MedAlreadyDestroyedOrFinalized();
         }
 
         address previousOwner = currentOwner;
+
         status = Status.Destroyed;
-        currentOwner = address(0); // No owner
+        currentOwner = address(0); // Ownership relinquished
         currentTransporter = address(0);
         currentDestination = address(0);
         lastUpdateTime = block.timestamp;
 
         emit BatchDestroyed(_reasonCode, lastUpdateTime);
+        // Emit ownership transfer to address(0) if there was a previous owner
         if (previousOwner != address(0)) {
             emit OwnershipTransferred(previousOwner, address(0), lastUpdateTime);
         }
         emit StatusChanged(status, lastUpdateTime);
     }
 
-    // --- View Function ---
-    // Called by SupplyChainLogic's internal view function
+    // --- View Function (Called by SupplyChainLogic via staticcall) ---
+
+    /** @dev Returns the current state details of the batch. */
     function getDetails() external view returns (
         bytes32 _description, uint _quantity, address[] memory _rawMaterialBatchIds,
         address _manufacturer, uint _creationTime, uint _expiryDate, Status _status,
@@ -170,8 +188,16 @@ contract Medicine {
         uint _lastUpdateTime
     ) {
         return (
-            description, quantity, rawMaterialBatchIds, manufacturer, creationTime,
-            expiryDate, status, currentOwner, currentTransporter, currentDestination,
+            description,
+            quantity,
+            rawMaterialBatchIds,
+            manufacturer,
+            creationTime,
+            expiryDate,
+            status,
+            currentOwner,
+            currentTransporter,
+            currentDestination,
             lastUpdateTime
         );
     }
