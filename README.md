@@ -40,7 +40,7 @@ MNEMONIC="your 12-word metamask recovery phrase"
 INFURA_KEY="your_infura_project_id"
 
 - 🔑 Get INFURA_KEY from [Infura Dashboard](https://infura.io/)
-- 🔑 MNEMONIC can be exported from MetaMask (Account Details > Export Private Key)
+- 🔑 MNEMONIC can be obtained from MetaMask ( Settings > Security & privacy > Reveal Secret Recovery Phrase )
 
 ### 3. Contract Deployment
 
@@ -86,5 +86,5 @@ Ensure MetaMask is configured for Sepolia Testnet:
 
 ## Troubleshooting
 - 🚨 Migration Errors: Verify .env variables and network configuration
-- 🔗 Connection Issues: Ensure consistent network in MetaMask ( in case of time out issue or any network issue try to redeploy the contract )
+- 🔗 Connection Issues: Ensure consistent internet connection ( in case of time out issue or any network issue try to redeploy the contract )
 - 💸 Deployment Failures: Check Sepolia ETH balance on [Sepolia Faucet](https://sepoliafaucet.com/)
