@@ -39,7 +39,7 @@ project-root/
 
 - INFURA_KEY="your_infura_project_id"
 
-- 🔑 Get INFURA_KEY from [Infura Dashboard](https://infura.io/)
+- 🔑 Get INFURA_API_KEY from [Infura Dashboard](https://infura.io/)
 - 🔑 MNEMONIC can be obtained from MetaMask ( Settings > Security & privacy > Reveal Secret Recovery Phrase )
 
 ### 3. Contract Deployment
