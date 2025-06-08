@@ -21,7 +21,8 @@ project-root/
 - npm (v9+)
 - Truffle Suite (`npm install -g truffle`)
 - MetaMask wallet (configured for Sepolia testnet)
-- for free testnet sepolia currency use Google Faucet ( 0.05 SepoliaETH )
+- Sufficient Balance ( free 0.05 SepoliaETH can be obtained from Google Faucet )
+
 
 ## Blockchain Setup
 
