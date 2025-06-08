@@ -84,4 +84,4 @@ Ensure MetaMask is configured for Sepolia Testnet:
 ## Troubleshooting
 - 🚨 Migration Errors: Verify .env variables and network configuration
 - 🔗 Connection Issues: Ensure consistent internet connection ( in case of time out issue or any network issue try to redeploy the contract )
-- 💸 Deployment Failures: Check Sepolia ETH balance on [Sepolia Faucet](https://sepoliafaucet.com/)
+- 💸 Deployment Failures: Check Sepolia ETH balance
