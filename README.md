@@ -38,7 +38,7 @@ project-root/
 
 - MNEMONIC="your 12-word metamask recovery phrase"
 
-- INFURA_KEY="your_infura_project_id"
+- INFURA_API_KEY="your_infura_project_id"
 
 - 🔑 Get INFURA_API_KEY from [Infura Dashboard](https://infura.io/)
 - 🔑 MNEMONIC can be obtained from MetaMask ( Settings > Security & privacy > Reveal Secret Recovery Phrase )
